@@ -2,7 +2,7 @@ import scitools.BoxField
 import matplotlib.pyplot as pyp
 from dolfin import *
 from params import params
-from elastic import elastic_stress
+from analytic import elastic_stress
 
 import pdb
 def _DEBUG():
@@ -20,7 +20,7 @@ mesh = RectangleMesh(params['x_min'], params['y_min'],
 
 # Define function spaces (P2-P1)
 S_fnc_space = VectorFunctionSpace(mesh, "CG", 2)
-v_fnc_space = FunctionSpace(mesh, "CG", 1)
+v_fnc_space = FunctionSpace(mesh, "CG", 2)
 
 # Define trial and test functions
 S = TrialFunction(S_fnc_space)
@@ -52,7 +52,7 @@ tol = 1e-10
 
 
 def fault_boundary(x, on_boundary):
-    return on_boundary and x[0] < params['x_min'] - tol
+    return on_boundary and x[0] < params['x_min'] + tol
 def plate_boundary(x, on_boundary):
     return on_boundary and x[0] > params['x_max'] - tol
 def mantle_boundary(x, on_boundary):
@@ -127,25 +127,34 @@ vfile = File("../data/velocity.pvd")
 # Time-step
 t = dt
 
-while t < T + DOLFIN_EPS:
-    # Compute tentative stress step
+def solve_tentative_stress():
     begin("Computing tentative stress")
     b1 = assemble(L1)
-    solve(A1, S1.vector(), b1, "lu")
+    solve(A1, S1.vector(), b1, "cg", prec)
     end()
 
-    # Pressure correction
-    begin("Computing pressure correction")
+def solve_velocity():
+    begin("Computing velocity correction")
     b2 = assemble(L2)
     [bc.apply(A2, b2) for bc in bcs]
     solve(A2, v1.vector(), b2, "cg", prec)
     end()
 
-    # Velocity correction
+def solve_stress_helmholtz():
     begin("Computing stress correction")
     b3 = assemble(L3)
-    solve(A3, S1.vector(), b3, "lu")
+    solve(A3, S1.vector(), b3, "cg", prec)
     end()
+
+while t < T + DOLFIN_EPS:
+    # Compute tentative stress step
+    solve_tentative_stress()
+
+    # Velocity correction
+    solve_velocity()
+
+    # Velocity correction
+    solve_stress_helmholtz()
 
     # Plot solution
     plot(Szx)
@@ -161,4 +170,4 @@ while t < T + DOLFIN_EPS:
     print "t =", t
 
 # Hold plot
-interactive()
+# interactive()
