@@ -1,10 +1,10 @@
-from projection.material import wetdiabase
+from material import wetdiabase
 
 secs_in_a_year = 3600 * 24 * 365
 params = dict()
 
 #what material to use
-params.material = wetdiabase
+params['material'] = wetdiabase
 
 #time stepping
 params['delta_t'] = 1.0 * secs_in_a_year
