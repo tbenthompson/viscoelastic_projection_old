@@ -18,9 +18,9 @@ mesh = RectangleMesh(params['x_min'], params['y_min'],
                      params['x_max'], params['y_max'],
                      nx, ny)
 
-# Define function spaces (P2-P1)
-S_fnc_space = VectorFunctionSpace(mesh, "CG", 2)
-v_fnc_space = FunctionSpace(mesh, "CG", 2)
+# Define function spaces
+S_fnc_space = VectorFunctionSpace(mesh, "CG", 1)
+v_fnc_space = FunctionSpace(mesh, "CG", 1)
 
 # Define trial and test functions
 S = TrialFunction(S_fnc_space)
