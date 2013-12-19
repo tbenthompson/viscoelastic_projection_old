@@ -5,15 +5,18 @@ from scipy.special import gammainc, gamma
 
 def elastic_stress(x, y, s, D, shear_modulus):
     """
-    Use the elastic half-space stress solution from Segall (2010)
+    Initial stresses for the Savage (2000) Viscoelastic-Coupling
+    Model.
+    I should figure out whether this represents a left-lateral
+    or right-lateral slip.
     """
     factor = (s * shear_modulus) / (2 * np.pi)
-    main_term = -(y - D) / ((y - D) ** 2 + x ** 2)
-    image_term = (y + D) / ((y + D) ** 2 + x ** 2)
+    main_term = (y - D) / ((y - D) ** 2 + x ** 2)
+    image_term = -(y + D) / ((y + D) ** 2 + x ** 2)
     Szx = factor * (main_term + image_term)
 
-    main_term = x / (x ** 2 + (y - D) ** 2)
-    image_term = -x / (x ** 2 + (y + D) ** 2)
+    main_term = -x / (x ** 2 + (y - D) ** 2)
+    image_term = x / (x ** 2 + (y + D) ** 2)
     Szy = factor * (main_term + image_term)
     return Szx, Szy
 
@@ -98,6 +101,10 @@ def velocity_dimensional(X, Y, D, t, T, shear_modulus, viscosity, plate_rate):
     plate_rate -- in m/sec
 
     Computes the velocity resulting from a screw dislocation offset.
+    Python version of the Savage (2000) Mathematica script.
+    The solution is derived by solving the corresponding elastic problem
+    and using the Laplace domain correspondence principle. Linear
+    superposition is used extensively.
     """
     tau = (shear_modulus * t) / (2 * viscosity)
     tau0 = (shear_modulus * T) / (2 * viscosity)

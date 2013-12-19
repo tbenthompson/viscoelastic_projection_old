@@ -2,7 +2,8 @@ import scitools.BoxField
 import matplotlib.pyplot as pyp
 from dolfin import *
 from params import params
-from analytic import elastic_stress
+from analytic import elastic_stress, velocity_dimensional
+import numpy as np
 
 import pdb
 def _DEBUG():
@@ -19,7 +20,7 @@ mesh = RectangleMesh(params['x_min'], params['y_min'],
                      nx, ny)
 
 # Define function spaces
-S_fnc_space = VectorFunctionSpace(mesh, "CG", 1)
+S_fnc_space = VectorFunctionSpace(mesh, "CG", 2)
 v_fnc_space = FunctionSpace(mesh, "CG", 1)
 
 # Define trial and test functions
@@ -51,22 +52,57 @@ inv_eta = InvViscosity(params['elastic_depth'], params['viscosity'])
 tol = 1e-10
 
 
+class TestBC(Expression):
+    def __init__(self, D, recur_interval,
+                 shear_modulus, viscosity, plate_rate):
+        self.D = D
+        self.recur_interval = recur_interval
+        self.shear_modulus = shear_modulus
+        self.viscosity = viscosity
+        self.plate_rate = plate_rate
+        self.t = 0
+
+    def eval(self, value, x):
+        value[0] = velocity_dimensional(x[0], x[1],
+                                        self.D,
+                                        self.t,
+                                        self.recur_interval,
+                                        self.shear_modulus,
+                                        self.viscosity,
+                                        self.plate_rate)
+test_bc = TestBC(params['fault_depth'],
+                 0.0,
+                 params['material']['shear_modulus'],
+                 params['viscosity'],
+                 params['plate_rate'])
 def fault_boundary(x, on_boundary):
     return on_boundary and x[0] < params['x_min'] + tol
 def plate_boundary(x, on_boundary):
     return on_boundary and x[0] > params['x_max'] - tol
 def mantle_boundary(x, on_boundary):
     return on_boundary and x[1] > params['y_max'] - tol
-fault = DirichletBC(v_fnc_space,
-                    Constant(0.0),
-                    fault_boundary)
-plate = DirichletBC(v_fnc_space,
-                    Constant(params['plate_rate']),
-                    plate_boundary)
-mantle = DirichletBC(v_fnc_space,
-                     Constant(0.0),
-                     mantle_boundary)
-bcs = [fault, plate, mantle]
+def testing_boundary(x, on_bdry):
+    return plate_boundary(x, on_bdry) or \
+        mantle_boundary(x, on_bdry) or \
+        fault_boundary(x, on_bdry)
+def get_normal_bcs():
+    fault = DirichletBC(v_fnc_space,
+                        Constant(0.0),
+                        fault_boundary)
+    plate = DirichletBC(v_fnc_space,
+                        Constant(params['plate_rate']),
+                        plate_boundary)
+    mantle = DirichletBC(v_fnc_space,
+                         Constant(0.0),
+                         mantle_boundary)
+    return [fault, plate, mantle]
+def get_test_bcs():
+    testing = DirichletBC(v_fnc_space,
+                          test_bc,
+                          testing_boundary)
+    return [testing]
+# bcs = get_normal_bcs()
+bcs = get_test_bcs()
 
 # Define Initial Conditions
 class InitialStress(Expression):
@@ -106,6 +142,7 @@ L1 = rhs(F1)
 
 # Velocity update
 a2 = inner(grad(v), grad(vt)) * dx
+# L2 = Constant(0) * vt * dx
 L2 = (1 / (mu * k)) * div(S1) * vt * dx
 
 # Helmholtz decomposition stress update
@@ -147,6 +184,7 @@ def solve_stress_helmholtz():
     end()
 
 while t < T + DOLFIN_EPS:
+    test_bc.t = t
     # Compute tentative stress step
     solve_tentative_stress()
 
@@ -169,5 +207,25 @@ while t < T + DOLFIN_EPS:
     t += dt
     print "t =", t
 
+# Iterate over solution and calculate error
+X_ = np.linspace(params['x_min'], params['x_max'], nx + 1)
+Y_ = np.linspace(params['y_min'], params['y_max'], ny + 1)
+X, Y = np.meshgrid(X_, Y_)
+v_guess = v1.vector()[v_fnc_space.dofmap().dof_to_vertex_map(mesh)].\
+            array().reshape((ny + 1, nx + 1))
+v_exact = velocity_dimensional(X, Y, params['fault_depth'], test_bc.t,
+                               0.0, params['material']['shear_modulus'],
+                               params['viscosity'], params['plate_rate'])
+error = np.mean(np.abs(v_guess - v_exact)) / np.mean(v_exact)
+print error
+pyp.figure(1)
+pyp.imshow(v_guess)
+pyp.colorbar()
+pyp.figure(2)
+pyp.imshow(v_exact)
+pyp.colorbar()
+pyp.show()
+
+
 # Hold plot
-# interactive()
+interactive()
