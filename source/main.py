@@ -1,5 +1,8 @@
+import scitools.BoxField
+import matplotlib.pyplot as pyp
 from dolfin import *
 from params import params
+from elastic import elastic_stress
 
 import pdb
 def _DEBUG():
@@ -8,14 +11,16 @@ def _DEBUG():
 # Print log messages only from the root process in parallel
 parameters["std_out_all_processes"] = False
 
-# Load mesh from file
+# Create mesh
+nx = params['x_points']
+ny = params['y_points']
 mesh = RectangleMesh(params['x_min'], params['y_min'],
                      params['x_max'], params['y_max'],
-                     params['x_points'], params['y_points'])
+                     nx, ny)
 
 # Define function spaces (P2-P1)
-S_fnc_space = VectorFunctionSpace(mesh, "Lagrange", 2)
-v_fnc_space = FunctionSpace(mesh, "Lagrange", 1)
+S_fnc_space = VectorFunctionSpace(mesh, "CG", 2)
+v_fnc_space = FunctionSpace(mesh, "CG", 1)
 
 # Define trial and test functions
 S = TrialFunction(S_fnc_space)
@@ -65,12 +70,12 @@ bcs = [fault, plate, mantle]
 
 # Define Initial Conditions
 class InitialStress(Expression):
-    def __init__(self, s, D, mu)
+    def __init__(self, s, D, mu):
         self.mu = mu
         self.D = D
         self.s = s
     def eval(self, value, x):
-        Szx, Szy = elastic_stress(x[0], x[1], s, D, mu)
+        Szx, Szy = elastic_stress(x[0], x[1], self.s, self.D, self.mu)
         value[0] = Szx
         value[1] = Szy
     def value_shape(self):
@@ -84,8 +89,10 @@ initial_stress = InitialStress(params['fault_slip'],
 S0 = interpolate(initial_stress, S_fnc_space)
 # New stress
 S1 = Function(S_fnc_space)
+Szx, Szy = S1.split()
 # New velocity
 v1 = Function(v_fnc_space)
+
 
 # Define coefficients
 k = Constant(dt)
@@ -117,16 +124,15 @@ prec = "amg" if has_krylov_solver_preconditioner("amg") else "default"
 sfile = File("../data/stress.pvd")
 vfile = File("../data/velocity.pvd")
 
-# Time-stepping
+# Time-step
 t = dt
+
 while t < T + DOLFIN_EPS:
     # Compute tentative stress step
     begin("Computing tentative stress")
     b1 = assemble(L1)
-    # [bc.apply(A1, b1) for bc in bcs]
-    solve(A1, S1.vector(), b1, "cg", prec)
+    solve(A1, S1.vector(), b1, "lu")
     end()
-    plot(S1)
 
     # Pressure correction
     begin("Computing pressure correction")
@@ -138,12 +144,12 @@ while t < T + DOLFIN_EPS:
     # Velocity correction
     begin("Computing stress correction")
     b3 = assemble(L3)
-    solve(A3, S1.vector(), b3, "cg", prec)
+    solve(A3, S1.vector(), b3, "lu")
     end()
 
     # Plot solution
-    plot(v1, title="Velocity", rescale=True)
-    plot(S1, title="Stress", rescale=True)
+    plot(Szx)
+    plot(v1)
 
     # Save to file
     sfile << S1

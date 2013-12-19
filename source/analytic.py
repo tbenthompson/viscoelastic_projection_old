@@ -1,8 +1,9 @@
+from math import pi
 def elastic_stress(x, y, s, D, shear_modulus):
     """
     Use the elastic half-space stress solution from Segall (2010)
     """
-    factor = (s * shear_modulus) / (2 * np.pi)
+    factor = (s * shear_modulus) / (2 * pi)
     main_term = -(y - D) / ((y - D) ** 2 + x ** 2)
     image_term = (y + D) / ((y + D) ** 2 + x ** 2)
     Szx = factor * (main_term + image_term)
