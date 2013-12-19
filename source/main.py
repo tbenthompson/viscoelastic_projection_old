@@ -63,8 +63,25 @@ mantle = DirichletBC(v_fnc_space,
                      mantle_boundary)
 bcs = [fault, plate, mantle]
 
+# Define Initial Conditions
+class InitialStress(Expression):
+    def __init__(self, s, D, mu)
+        self.mu = mu
+        self.D = D
+        self.s = s
+    def eval(self, value, x):
+        Szx, Szy = elastic_stress(x[0], x[1], s, D, mu)
+        value[0] = Szx
+        value[1] = Szy
+    def value_shape(self):
+        return (2,)
+initial_stress = InitialStress(params['fault_slip'],
+                               params['fault_depth'],
+                               params['material']['shear_modulus'])
+
+
 # Old stress
-S0 = Function(S_fnc_space)
+S0 = interpolate(initial_stress, S_fnc_space)
 # New stress
 S1 = Function(S_fnc_space)
 # New velocity
