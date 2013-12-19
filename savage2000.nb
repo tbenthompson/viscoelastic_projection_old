@@ -10,10 +10,10 @@
 NotebookFileLineBreakTest
 NotebookFileLineBreakTest
 NotebookDataPosition[       157,          7]
-NotebookDataLength[    105082,       1853]
-NotebookOptionsPosition[    104764,       1837]
-NotebookOutlinePosition[    105104,       1852]
-CellTagsIndexPosition[    105061,       1849]
+NotebookDataLength[    105318,       1860]
+NotebookOptionsPosition[    104959,       1843]
+NotebookOutlinePosition[    105299,       1858]
+CellTagsIndexPosition[    105256,       1855]
 WindowFrame->Normal*)
 
 (* Beginning of Notebook Content *)
@@ -1833,7 +1833,13 @@ DewXAABTlmrq
   ViewPoint->{-1.704055666348261, -0.7884123100377485, 2.8150666626862297`},
   ViewVertical->{0., 0., 1.}]], "Output",
  CellChangeTimes->{3.596449700407391*^9, 3.59644976612332*^9}]
-}, Open  ]]
+}, Open  ]],
+
+Cell[BoxData[
+ RowBox[{"v", "[", 
+  RowBox[{"tau", ",", " ", "tau0", ",", " ", "1.0", ",", " ", "1.0"}], 
+  "]"}]], "Input",
+ CellChangeTimes->{{3.596449826386367*^9, 3.5964498322495193`*^9}}]
 },
 WindowSize->{740, 755},
 WindowMargins->{{Automatic, -1768}, {Automatic, -96}},
@@ -1854,7 +1860,8 @@ Notebook[{
 Cell[CellGroupData[{
 Cell[579, 22, 8552, 252, 525, "Input"],
 Cell[9134, 276, 95614, 1558, 306, "Output"]
-}, Open  ]]
+}, Open  ]],
+Cell[104763, 1837, 192, 4, 30, "Input"]
 }
 ]
 *)

@@ -64,6 +64,12 @@ def cm(x, y, tau, tau0, m, past_events):
 
 
 def velocity(x, y, tau, tau0):
+    """
+    Nondimensional version of "velocity_dimensional"
+
+    tau = (mu * t) / (2 * eta)
+    tau0 = (mu * T) / (2 * eta)
+    """
     images = 50
     past_events = 50
     vl = np.zeros_like(x)
@@ -80,20 +86,38 @@ def velocity(x, y, tau, tau0):
     vl = term1 + term2
     return vl
 
-if __name__ == "__main__":
-    from matplotlib import pyplot as pyp
-    X, Y = np.meshgrid(np.linspace(1, 2e4, 300),
-                np.linspace(0, 2e4, 300))
-    t = 0.1 * 3600 * 24 * 365
-    T = 100.0 * 3600 * 24 * 365
-    shear_modulus = 3.0e10
-    viscosity = 1.0e19
-    D = 1.0e4
+def velocity_dimensional(X, Y, D, t, T, shear_modulus, viscosity, plate_rate):
+    """
+    Parameters are
+    X, Y -- position with X as horizontal and Y positive downwards, in m
+    D -- depth of fault and elastic layer, in m
+    t -- time after last event, in secs
+    T -- interevent time, in secs
+    shear_modulus -- in Pa
+    viscosity -- in Pa/sec
+    plate_rate -- in m/sec
+
+    Computes the velocity resulting from a screw dislocation offset.
+    """
     tau = (shear_modulus * t) / (2 * viscosity)
     tau0 = (shear_modulus * T) / (2 * viscosity)
     x = X / D
     y = Y / D
     v = velocity(x, y, tau, tau0)
+    return v * plate_rate
+
+if __name__ == "__main__":
+    from matplotlib import pyplot as pyp
+    X, Y = np.meshgrid(np.linspace(1, 2e4, 300),
+                np.linspace(0, 2e4, 300))
+    t = 0.0 * 3600 * 24 * 365
+    T = 0.0 * 3600 * 24 * 365
+    shear_modulus = 3.0e10
+    viscosity = 1.0e19
+    D = 1.0e4
+    v_plate = 1.0e-9
+
+    v = velocity_dimensional(X, Y, D, t, T, shear_modulus, viscosity, v_plate)
     import pdb; pdb.set_trace()
     pyp.imshow(v, interpolation='none')
     pyp.colorbar()
