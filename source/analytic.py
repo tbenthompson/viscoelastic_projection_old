@@ -1,22 +1,25 @@
 import numpy as np
 from math import factorial
 from scipy.special import gammainc, gamma
+from matplotlib import pyplot as pyp
 
-#
+##############################################################
 # Stress solution
-#
-
-
+##############################################################
 def steady_creep_dx(x, y):
-    factor = 1 / np.pi
-    term = (y - 1) / ((x ** 2) + (y - 1) ** 2)
-    return factor * term
+    factor = 1.0 / (2 * np.pi)
+    main_term = (y - 1) / ((y - 1) ** 2 + x ** 2)
+    image_term = -(y + 1) / ((y + 1) ** 2 + x ** 2)
+    Szx = factor * (main_term + image_term)
+    return Szx
 
 
 def steady_creep_dy(x, y):
-    factor = 1 / np.pi
-    term = -x / ((x ** 2) + (y - 1) ** 2)
-    return factor * term
+    factor = 1.0 / (2 * np.pi)
+    main_term = -x / (x ** 2 + (y - 1) ** 2)
+    image_term = x / (x ** 2 + (y + 1) ** 2)
+    Szy = factor * (main_term + image_term)
+    return Szy
 
 
 def S_m_layer_dx(x, y, m):
@@ -30,24 +33,24 @@ def S_m_layer_dx(x, y, m):
 
 def S_m_layer_dy(x, y, m):
     factor = 1 / (2 * np.pi)
-    term1 = x ** 2 / ((2 * m + 1 + y) ** 2 + x ** 2)
-    term2 = -x ** 2 / ((2 * m - 1 + y) ** 2 + x ** 2)
-    term3 = x ** 2 / ((2 * m + 1 - y) ** 2 + x ** 2)
-    term4 = -x ** 2 / ((2 * m - 1 - y) ** 2 + x ** 2)
+    term1 = x / ((2 * m + 1 + y) ** 2 + x ** 2)
+    term2 = -x / ((2 * m - 1 + y) ** 2 + x ** 2)
+    term3 = -x / ((2 * m + 1 - y) ** 2 + x ** 2)
+    term4 = x / ((2 * m - 1 - y) ** 2 + x ** 2)
     return factor * (term1 + term2 + term3 + term4)
 
 
 def S_m_halfspace_dx(x, y, m):
     factor = 1 / (2 * np.pi)
-    term1 = (2 * m + 1 + y) / ((2 * m + 1 + y) ** 2 + x ** 2)
-    term2 = -(2 * m - 3 + y) / ((2 * m - 3 + y) ** 2 + x ** 2)
+    term1 = -(2 * m + 1 + y) / ((2 * m + 1 + y) ** 2 + x ** 2)
+    term2 = (2 * m - 3 + y) / ((2 * m - 3 + y) ** 2 + x ** 2)
     return factor * (term1 + term2)
 
 
 def S_m_halfspace_dy(x, y, m):
     factor = 1 / (2 * np.pi)
-    term1 = x ** 2 / ((2 * m + 1 + y) ** 2 + x ** 2)
-    term2 = -x ** 2 / ((2 * m - 3 + y) ** 2 + x ** 2)
+    term1 = x / ((2 * m + 1 + y) ** 2 + x ** 2)
+    term2 = -x / ((2 * m - 3 + y) ** 2 + x ** 2)
     return factor * (term1 + term2)
 
 
@@ -55,15 +58,13 @@ def A_m(tau, m):
     return gammainc(m, tau)
 
 
-def stress(x, y, tau, tau0):
+def stress(x, y, tau, tau0, past_events=50, images=50):
     """
     Initial stresses for the Savage (2000) Viscoelastic-Coupling
     Model.
     I should figure out whether this represents a left-lateral
     or right-lateral slip.
     """
-    images = 50
-    past_events = 50
     steady_term_dx = past_events * steady_creep_dx(x, y)
     steady_term_dy = past_events * steady_creep_dy(x, y)
     evolve_term_dx = np.zeros_like(x)
@@ -71,13 +72,11 @@ def stress(x, y, tau, tau0):
     for m in range(1, images):
         Am = 0.0
         for k in range(past_events):
-            Am += (A_m(tau + k * tau0, m) - 1.0)
+            Am += A_m(tau + k * tau0, m)
             if np.isnan(Am):
                 raise Exception(k)
-        # import pdb
-        # pdb.set_trace()
         Smdx = np.where(y > 1, S_m_halfspace_dx(x, y, m),
-                        S_m_layer_dy(x, y, m))
+                        S_m_layer_dx(x, y, m))
         Smdy = np.where(y > 1, S_m_halfspace_dy(x, y, m),
                         S_m_layer_dy(x, y, m))
         evolve_term_dx += Am * Smdx
@@ -86,31 +85,39 @@ def stress(x, y, tau, tau0):
     Szy = steady_term_dy + evolve_term_dy
     return Szx, Szy
 
-# def stress_dimensional(x, y, D, t, T, shear_modulus, viscosity, v_plate):
-#     x = x / D
-#     y = y / D
-#     tau = (shear_modulus * t) / (2 * viscosity)
-#     tau0 = (shear_modulus * T) / (2 * viscosity)
-
+def stress_dimensional(x, y, D, t, T, shear_modulus, viscosity, v_plate, past_events=50, images=50):
+    x = x / D
+    y = y / D
+    tau = (shear_modulus * t) / (2 * viscosity)
+    tau0 = (shear_modulus * T) / (2 * viscosity)
+    Szx, Szy = stress(x, y, tau, tau0, past_events=past_events, images=images)
+    slip = v_plate * T
+    factor = (shear_modulus * slip) / D
+    return factor * Szx, factor * Szy
 
 def test_stress():
-    from matplotlib import pyplot as pyp
-    X, Y = np.meshgrid(np.linspace(0.0001, 1, 100),
-                       np.linspace(0, 2, 100))
-    tau = 4.7
-    tau0 = 47
-    # t = 0.0 * 3600 * 24 * 365
-    # T = 0.0 * 3600 * 24 * 365
-    # shear_modulus = 3.0e10
-    # viscosity = 1.0e19
-    # D = 1.0e4
-    # v_plate = 1.0e-9
+    X, Y = np.meshgrid(np.linspace(1, 1e4, 50),
+                       np.linspace(0, 2e4, 50))
+    t = 0.0 * 3600 * 24 * 365
+    T = 100.0 * 3600 * 24 * 365
+    shear_modulus = 3.0e10
+    viscosity = 5.0e19
+    D = 1.0e4
+    v_plate = 1.0e-9
 
-    Szx, Szy = stress(X, Y, tau, tau0)
+    Szx, Szy = stress_dimensional(X, Y, D, t, T, shear_modulus, viscosity, v_plate)
+    Szx2, Szy2 = simple_stress(X, Y, 1.0, D, shear_modulus)
     pyp.imshow(Szx, interpolation='none')
     pyp.colorbar()
-    # pyp.figure(2)
-    # pyp.contour(Szx)
+    pyp.figure(2)
+    pyp.imshow(np.log(np.abs(Szx)))
+    pyp.colorbar()
+    pyp.figure(3)
+    pyp.imshow(Szx2, interpolation='none')
+    pyp.colorbar()
+    pyp.figure(4)
+    pyp.imshow(np.log(np.abs(Szx2)))
+    pyp.colorbar()
     pyp.show()
 
 
@@ -126,9 +133,9 @@ def simple_stress(x, y, s, D, shear_modulus):
     return Szx, Szy
 
 
-#
+###############################################################
 # Velocity solution
-#
+###############################################################
 def sum_layer(x, y):
     factor = 1.0 / (2.0 * np.pi)
     term1 = -np.arctan((1 + y) / x)
@@ -178,15 +185,13 @@ def cm(x, y, tau, tau0, m, past_events):
     return term1 + term2
 
 
-def velocity(x, y, tau, tau0):
+def velocity(x, y, tau, tau0, past_events=50, images=50):
     """
     Nondimensional version of "velocity_dimensional"
 
     tau = (mu * t) / (2 * eta)
     tau0 = (mu * T) / (2 * eta)
     """
-    images = 50
-    past_events = 50
     vl = np.zeros_like(x)
     term1 = 0.0
     for m in range(1, images + 1):
@@ -202,7 +207,7 @@ def velocity(x, y, tau, tau0):
     return vl
 
 
-def velocity_dimensional(X, Y, D, t, T, shear_modulus, viscosity, plate_rate):
+def velocity_dimensional(X, Y, D, t, T, shear_modulus, viscosity, plate_rate, past_events=50, images=50):
     """
     Parameters are
     X, Y -- position with X as horizontal and Y positive downwards, in m
@@ -223,26 +228,26 @@ def velocity_dimensional(X, Y, D, t, T, shear_modulus, viscosity, plate_rate):
     tau0 = (shear_modulus * T) / (2 * viscosity)
     x = X / D
     y = Y / D
-    v = velocity(x, y, tau, tau0)
+    v = velocity(x, y, tau, tau0, past_events=past_events, images=images)
     return v * plate_rate
 
 
 def test_velocity():
-    from matplotlib import pyplot as pyp
-    X, Y = np.meshgrid(np.linspace(1, 2e4, 300),
+    X, Y = np.meshgrid(np.linspace(1, 2e5, 300),
                        np.linspace(0, 2e4, 300))
-    t = 0.0 * 3600 * 24 * 365
-    T = 0.0 * 3600 * 24 * 365
+    t = 10.0 * 3600 * 24 * 365
+    T = 100.0 * 3600 * 24 * 365
     shear_modulus = 3.0e10
     viscosity = 1.0e19
     D = 1.0e4
     v_plate = 1.0e-9
 
     v = velocity_dimensional(X, Y, D, t, T, shear_modulus, viscosity, v_plate)
-    import pdb
-    pdb.set_trace()
     pyp.imshow(v, interpolation='none')
     pyp.colorbar()
     pyp.figure(2)
     pyp.contour(v)
     pyp.show()
+
+if __name__ == "__main__":
+    test_stress()

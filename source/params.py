@@ -8,7 +8,7 @@ params['material'] = wetdiabase
 
 #time stepping
 params['delta_t'] = 0.1 * secs_in_a_year
-params['t_max'] = 0.301 * secs_in_a_year
+params['t_max'] = 0.101 * secs_in_a_year
 
 #grid descriptors
 params['x_min'] = 1.0
@@ -27,6 +27,7 @@ params['plate_rate'] = (40.0 / 1.0e3) / secs_in_a_year  # 40 mm/yr
 # slip variations and elastic modulus variations.
 params['fault_slip'] = 1.0
 params['fault_depth'] = 1.0e4
+params['recur_interval'] = 100 * secs_in_a_year
 params['elastic_depth'] = 1.0e4
 params['viscosity'] = 5.0e19
 

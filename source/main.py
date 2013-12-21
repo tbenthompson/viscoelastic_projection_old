@@ -2,7 +2,7 @@ import scitools.BoxField
 import matplotlib.pyplot as pyp
 from dolfin import *
 from params import params
-from analytic import more_complex_stress, velocity_dimensional
+from analytic import stress_dimensional, velocity_dimensional
 import numpy as np
 
 import pdb
@@ -69,9 +69,10 @@ class TestBC(Expression):
                                         self.recur_interval,
                                         self.shear_modulus,
                                         self.viscosity,
-                                        self.plate_rate)
+                                        self.plate_rate,
+                                        past_events=50)
 test_bc = TestBC(params['fault_depth'],
-                 0.0,
+                 params['recur_interval'],
                  params['material']['shear_modulus'],
                  params['viscosity'],
                  params['plate_rate'])
@@ -106,19 +107,27 @@ bcs = get_test_bcs()
 
 # Define Initial Conditions
 class InitialStress(Expression):
-    def __init__(self, s, D, mu):
+    def __init__(self, s, D, recur, mu, viscosity, plate_rate):
+        self.recur = recur
         self.mu = mu
         self.D = D
         self.s = s
+        self.viscosity = viscosity
+        self.plate_rate = plate_rate
     def eval(self, value, x):
-        Szx, Szy = more_complex_stress(x[0], x[1], self.s, self.D, self.mu)
+        print x[0]
+        Szx, Szy = stress_dimensional(x[0], x[1], self.D, 0.0, self.recur, self.mu,
+                                      self.viscosity, self.plate_rate)
         value[0] = Szx
         value[1] = Szy
     def value_shape(self):
         return (2,)
 initial_stress = InitialStress(params['fault_slip'],
                                params['fault_depth'],
-                               params['material']['shear_modulus'])
+                               params['recur_interval'],
+                               params['material']['shear_modulus'],
+                               params['viscosity'],
+                               params['plate_rate'])
 
 
 # Old stress
