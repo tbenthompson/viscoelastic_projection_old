@@ -2,7 +2,7 @@ import scitools.BoxField
 import matplotlib.pyplot as pyp
 from dolfin import *
 from params import params
-from analytic import elastic_stress, velocity_dimensional
+from analytic import more_complex_stress, velocity_dimensional
 import numpy as np
 
 import pdb
@@ -111,7 +111,7 @@ class InitialStress(Expression):
         self.D = D
         self.s = s
     def eval(self, value, x):
-        Szx, Szy = elastic_stress(x[0], x[1], self.s, self.D, self.mu)
+        Szx, Szy = more_complex_stress(x[0], x[1], self.s, self.D, self.mu)
         value[0] = Szx
         value[1] = Szy
     def value_shape(self):
@@ -135,10 +135,9 @@ k = Constant(dt)
 f = Constant((0, 0))
 
 # Tentative stress step
-F1 = (1 / k) * inner(S - S0, St) * dx + \
+a1 = (1 / k) * inner(S, St) * dx + \
     (mu * inv_eta) * inner(S, St) * dx
-a1 = lhs(F1)
-L1 = rhs(F1)
+L1 = (1 / k) * inner(S0, St) * dx
 
 # Velocity update
 a2 = inner(grad(v), grad(vt)) * dx
@@ -195,8 +194,8 @@ while t < T + DOLFIN_EPS:
     solve_stress_helmholtz()
 
     # Plot solution
-    plot(Szx)
-    plot(v1)
+    # plot(Szx)
+    # plot(v1)
 
     # Save to file
     sfile << S1
@@ -228,4 +227,4 @@ pyp.show()
 
 
 # Hold plot
-interactive()
+# interactive()

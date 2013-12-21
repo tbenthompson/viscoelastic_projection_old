@@ -15,8 +15,8 @@ params['x_min'] = 1.0
 params['x_max'] = 1.0e4
 params['y_min'] = 0.0
 params['y_max'] = 2.0e4
-params['x_points'] = 200
-params['y_points'] = 20
+params['x_points'] = 40
+params['y_points'] = 40
 
 # Far field plate rate boundary condition.
 params['plate_rate'] = (40.0 / 1.0e3) / secs_in_a_year  # 40 mm/yr
