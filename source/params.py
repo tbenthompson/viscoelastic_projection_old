@@ -7,16 +7,16 @@ params = dict()
 params['material'] = wetdiabase
 
 #time stepping
-params['delta_t'] = 0.1 * secs_in_a_year
-params['t_max'] = 0.101 * secs_in_a_year
+params['delta_t'] = 0.05 * secs_in_a_year
+params['t_max'] = 0.1 * secs_in_a_year
 
 #grid descriptors
-params['x_min'] = 1.0
+params['x_min'] = 1000.0
 params['x_max'] = 1.0e4
 params['y_min'] = 0.0
 params['y_max'] = 2.0e4
-params['x_points'] = 40
-params['y_points'] = 40
+params['x_points'] = 70
+params['y_points'] = 70
 
 # Far field plate rate boundary condition.
 params['plate_rate'] = (40.0 / 1.0e3) / secs_in_a_year  # 40 mm/yr

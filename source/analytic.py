@@ -5,6 +5,8 @@ from matplotlib import pyplot as pyp
 
 ##############################################################
 # Stress solution
+# This has big problems that need to be resolved. Maybe I
+# should just interaface with Phoebe's code or something available online.
 ##############################################################
 def steady_creep_dx(x, y):
     factor = 1.0 / (2 * np.pi)
@@ -107,30 +109,20 @@ def test_stress():
 
     Szx, Szy = stress_dimensional(X, Y, D, t, T, shear_modulus, viscosity, v_plate)
     Szx2, Szy2 = simple_stress(X, Y, 1.0, D, shear_modulus)
-    pyp.imshow(Szx, interpolation='none')
+    pyp.imshow(Szy, interpolation='none')
     pyp.colorbar()
     pyp.figure(2)
-    pyp.imshow(np.log(np.abs(Szx)))
+    pyp.imshow(np.log(np.abs(Szy)))
     pyp.colorbar()
     pyp.figure(3)
-    pyp.imshow(Szx2, interpolation='none')
+    pyp.imshow(Szy2, interpolation='none')
     pyp.colorbar()
     pyp.figure(4)
-    pyp.imshow(np.log(np.abs(Szx2)))
+    pyp.imshow(np.log(np.abs(Szy2)))
     pyp.colorbar()
     pyp.show()
 
 
-def simple_stress(x, y, s, D, shear_modulus):
-    factor = (s * shear_modulus) / (2 * np.pi)
-    main_term = (y - D) / ((y - D) ** 2 + x ** 2)
-    image_term = -(y + D) / ((y + D) ** 2 + x ** 2)
-    Szx = factor * (main_term + image_term)
-
-    main_term = -x / (x ** 2 + (y - D) ** 2)
-    image_term = x / (x ** 2 + (y + D) ** 2)
-    Szy = factor * (main_term + image_term)
-    return Szx, Szy
 
 
 ###############################################################
@@ -222,7 +214,8 @@ def velocity_dimensional(X, Y, D, t, T, shear_modulus, viscosity, plate_rate, pa
     Python version of the Savage (2000) Mathematica script.
     The solution is derived by solving the corresponding elastic problem
     and using the Laplace domain correspondence principle. Linear
-    superposition is used extensively.
+    superposition is used extensively to represent a whole series of
+    earthquakes rather than just one isolated event.
     """
     tau = (shear_modulus * t) / (2 * viscosity)
     tau0 = (shear_modulus * T) / (2 * viscosity)
@@ -233,21 +226,66 @@ def velocity_dimensional(X, Y, D, t, T, shear_modulus, viscosity, plate_rate, pa
 
 
 def test_velocity():
-    X, Y = np.meshgrid(np.linspace(1, 2e5, 300),
+    X, Y = np.meshgrid(np.linspace(1, 2e4, 300),
                        np.linspace(0, 2e4, 300))
-    t = 10.0 * 3600 * 24 * 365
+    t = 0.1 * 3600 * 24 * 365
     T = 100.0 * 3600 * 24 * 365
     shear_modulus = 3.0e10
-    viscosity = 1.0e19
+    viscosity = 5.0e19
     D = 1.0e4
-    v_plate = 1.0e-9
+    v_plate = 1.2e-9
 
-    v = velocity_dimensional(X, Y, D, t, T, shear_modulus, viscosity, v_plate)
+    # v = velocity_dimensional(X, Y, D, t, T, shear_modulus, viscosity, v_plate)
+    v = simple_velocity(X, Y, D, t, shear_modulus, viscosity, v_plate)
+    Szx, Szy = simple_stress(X, Y, 1.0, D, shear_modulus)
     pyp.imshow(v, interpolation='none')
     pyp.colorbar()
-    pyp.figure(2)
-    pyp.contour(v)
+    pyp.figure(5)
+    pyp.plot(v[0, :])
+    # pyp.figure(2)
+    # pyp.imshow(Szx, interpolation='none')
+    # pyp.colorbar()
+    # pyp.figure(3)
+    # pyp.imshow(Szy, interpolation='none')
+    # pyp.colorbar()
+    # divS = (Szx[1:, :] - Szx[:-1, :])[:,1:] + (Szy[:, 1:] - Szy[:, :-1])[1:, :]
+    # divS /= (2e4 / 300.0)
+    # print np.mean(divS)
+    # pyp.figure(4)
+    # pyp.imshow(divS, interpolation='none')
+    # pyp.colorbar()
     pyp.show()
 
+
+########################################################################
+# Simple versions for one isolated earthquake.
+########################################################################
+def simple_stress(x, y, s, D, shear_modulus):
+    factor = (s * shear_modulus) / (2 * np.pi)
+    main_term = (y - D) / ((y - D) ** 2 + x ** 2)
+    image_term = -(y + D) / ((y + D) ** 2 + x ** 2)
+    Szx = factor * (main_term + image_term)
+
+    main_term = -x / (x ** 2 + (y - D) ** 2)
+    image_term = x / (x ** 2 + (y + D) ** 2)
+    Szy = factor * (main_term + image_term)
+    return Szx, Szy
+
+def simple_velocity(x, y, D, t, mu, eta, v_plate, images=50):
+    v = np.zeros_like(x)
+    x_scaled = x / D
+    y_scaled = y / D
+    t_r = (2 * eta) / mu
+    for m in range(1, images):
+        factor = ((t / t_r) ** (m - 1)) / factorial(m - 1)
+        term = np.where(y_scaled > 1,
+                        S_m_halfspace(x_scaled, y_scaled, m),
+                        S_m_layer(x_scaled, y_scaled, m))
+        v += factor * term
+    v *= np.exp(-t / t_r)
+    v *= 1.0 / t_r
+    return v
+
 if __name__ == "__main__":
-    test_stress()
+    test_velocity()
+    # test_stress()

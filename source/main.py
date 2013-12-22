@@ -2,8 +2,9 @@ import scitools.BoxField
 import matplotlib.pyplot as pyp
 from dolfin import *
 from params import params
-from analytic import stress_dimensional, velocity_dimensional
 import numpy as np
+import pyximport; pyximport.install()
+from analytic import stress_dimensional, velocity_dimensional, simple_velocity, simple_stress
 
 import pdb
 def _DEBUG():
@@ -63,14 +64,20 @@ class TestBC(Expression):
         self.t = 0
 
     def eval(self, value, x):
-        value[0] = velocity_dimensional(x[0], x[1],
+        value[0] = simple_velocity(x[0], x[1],
                                         self.D,
                                         self.t,
-                                        self.recur_interval,
                                         self.shear_modulus,
                                         self.viscosity,
-                                        self.plate_rate,
-                                        past_events=50)
+                                        self.plate_rate)
+        # value[0] = velocity_dimensional(x[0], x[1],
+        #                                 self.D,
+        #                                 self.t,
+        #                                 self.recur_interval,
+        #                                 self.shear_modulus,
+        #                                 self.viscosity,
+        #                                 self.plate_rate,
+        #                                 past_events=50)
 test_bc = TestBC(params['fault_depth'],
                  params['recur_interval'],
                  params['material']['shear_modulus'],
@@ -115,9 +122,9 @@ class InitialStress(Expression):
         self.viscosity = viscosity
         self.plate_rate = plate_rate
     def eval(self, value, x):
-        print x[0]
-        Szx, Szy = stress_dimensional(x[0], x[1], self.D, 0.0, self.recur, self.mu,
-                                      self.viscosity, self.plate_rate)
+        Szx, Szy = simple_stress(x[0], x[1], self.s, self.D, self.mu)
+        # Szx, Szy = stress_dimensional(x[0], x[1], self.D, 0.0, self.recur, self.mu,
+        #                               self.viscosity, self.plate_rate)
         value[0] = Szx
         value[1] = Szy
     def value_shape(self):
@@ -221,9 +228,12 @@ Y_ = np.linspace(params['y_min'], params['y_max'], ny + 1)
 X, Y = np.meshgrid(X_, Y_)
 v_guess = v1.vector()[v_fnc_space.dofmap().dof_to_vertex_map(mesh)].\
             array().reshape((ny + 1, nx + 1))
-v_exact = velocity_dimensional(X, Y, params['fault_depth'], test_bc.t,
-                               0.0, params['material']['shear_modulus'],
+v_exact = simple_velocity(X, Y, params['fault_depth'], test_bc.t,
+                               params['material']['shear_modulus'],
                                params['viscosity'], params['plate_rate'])
+# v_exact = velocity_dimensional(X, Y, params['fault_depth'], test_bc.t,
+#                                0.0, params['material']['shear_modulus'],
+#                                params['viscosity'], params['plate_rate'])
 error = np.mean(np.abs(v_guess - v_exact)) / np.mean(v_exact)
 print error
 pyp.figure(1)
