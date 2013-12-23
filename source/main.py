@@ -3,8 +3,7 @@ import matplotlib.pyplot as pyp
 from dolfin import *
 from params import params
 import numpy as np
-import pyximport; pyximport.install()
-from analytic import stress_dimensional, velocity_dimensional, simple_velocity, simple_stress
+from analytic_fast import simple_velocity, simple_stress
 
 import pdb
 def _DEBUG():
@@ -175,7 +174,7 @@ L2 = (1 / (mu * k)) * div(S1) * vt * dx
 a3 = inner(S, St) * dx
 L3 = inner(S1, St) * dx + k * mu * inner(grad(v1), St) * dx
 
-# Assemble matrices
+# Assemble lhs matrices
 A1 = assemble(a1)
 A2 = assemble(a2)
 A3 = assemble(a3)
@@ -243,7 +242,10 @@ Y_ = np.linspace(params['y_min'], params['y_max'], ny + 1)
 X, Y = np.meshgrid(X_, Y_)
 v_guess = v1.vector()[v_fnc_space.dofmap().dof_to_vertex_map(mesh)].\
             array().reshape((ny + 1, nx + 1))
-v_exact = simple_velocity(X, Y, params['fault_depth'], test_bc.t,
+v_exact = np.empty_like(v_guess)
+for i in range(v_guess.shape[0]):
+    for j in range(v_guess.shape[1]):
+        v_exact[i, j] = simple_velocity(X[i, j], Y[i, j], params['fault_depth'], test_bc.t,
                                params['material']['shear_modulus'],
                                params['viscosity'], params['plate_rate'])
 # v_exact = velocity_dimensional(X, Y, params['fault_depth'], test_bc.t,
