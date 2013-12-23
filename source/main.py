@@ -141,8 +141,10 @@ initial_stress = InitialStress(params['fault_slip'],
 S0 = interpolate(initial_stress, S_fnc_space)
 # New stress
 S1 = Function(S_fnc_space)
+S2 = Function(S_fnc_space)
 Szx, Szy = S1.split()
 # New velocity
+v0 = Function(v_fnc_space)
 v1 = Function(v_fnc_space)
 
 
@@ -150,10 +152,19 @@ v1 = Function(v_fnc_space)
 k = Constant(dt)
 f = Constant((0, 0))
 
+# a33 = v * vt * dx
+# L33 = div(S0) * vt * dx
+# A33 = assemble(a33)
+# b33 = assemble(L33)
+# solve(A33, v0.vector(), b33)
+# _DEBUG()
+
 # Tentative stress step
-a1 = (1 / k) * inner(S, St) * dx + \
-    (mu * inv_eta) * inner(S, St) * dx
-L1 = (1 / k) * inner(S0, St) * dx
+A1 = inner(S - S0, St) * dx + \
+    k * mu * inv_eta * inner(S, St) * dx
+    # inner(Constant((0,0)), St) * dx
+a1 = lhs(A1)
+L1 = rhs(A1)
 
 # Velocity update
 a2 = inner(grad(v), grad(vt)) * dx
@@ -183,6 +194,9 @@ def solve_tentative_stress():
     begin("Computing tentative stress")
     b1 = assemble(L1)
     solve(A1, S1.vector(), b1, "cg", prec)
+    # S0.assign(S1)
+    # solve(A33, v0.vector(), b33)
+    # _DEBUG()
     end()
 
 def solve_velocity():
@@ -195,7 +209,7 @@ def solve_velocity():
 def solve_stress_helmholtz():
     begin("Computing stress correction")
     b3 = assemble(L3)
-    solve(A3, S1.vector(), b3, "cg", prec)
+    solve(A3, S2.vector(), b3, "cg", prec)
     end()
 
 while t < T + DOLFIN_EPS:
@@ -214,11 +228,12 @@ while t < T + DOLFIN_EPS:
     # plot(v1)
 
     # Save to file
-    sfile << S1
+    sfile << S2
     vfile << v1
 
     # Move to next time step
-    S0.assign(S1)
+    S0.assign(S2)
+    v0.assign(v1)
     t += dt
     print "t =", t
 
@@ -236,13 +251,15 @@ v_exact = simple_velocity(X, Y, params['fault_depth'], test_bc.t,
 #                                params['viscosity'], params['plate_rate'])
 error = np.mean(np.abs(v_guess - v_exact)) / np.mean(v_exact)
 print error
-pyp.figure(1)
-pyp.imshow(v_guess)
-pyp.colorbar()
-pyp.figure(2)
-pyp.imshow(v_exact)
-pyp.colorbar()
-pyp.show()
+# pyp.figure(1)
+# pyp.imshow(v_guess)
+# pyp.colorbar()
+# pyp.figure(2)
+# pyp.imshow(v_exact)
+# pyp.colorbar()
+# pyp.show()
+import sys
+sys.exit()
 
 
 # Hold plot

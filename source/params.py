@@ -3,20 +3,21 @@ from material import wetdiabase
 secs_in_a_year = 3600 * 24 * 365.0
 params = dict()
 
-#what material to use
+# what material to use
 params['material'] = wetdiabase
 
-#time stepping
-params['delta_t'] = 0.05 * secs_in_a_year
-params['t_max'] = 0.1 * secs_in_a_year
+# time stepping
+# params['delta_t'] = 0. * secs_in_a_year
+params['t_max'] = 100.0 * secs_in_a_year
+params['delta_t'] = params['t_max'] / 8.0001
 
-#grid descriptors
-params['x_min'] = 1000.0
-params['x_max'] = 1.0e4
+# grid descriptors
+params['x_min'] = 2000.0
+params['x_max'] = 2.0e4
 params['y_min'] = 0.0
 params['y_max'] = 2.0e4
-params['x_points'] = 70
-params['y_points'] = 70
+params['x_points'] = 150
+params['y_points'] = 150
 
 # Far field plate rate boundary condition.
 params['plate_rate'] = (40.0 / 1.0e3) / secs_in_a_year  # 40 mm/yr
