@@ -38,15 +38,16 @@ mu = Constant(params['material']['shear_modulus'])
 
 
 class InvViscosity(Expression):
-    def __init__(self, D, eta):
+    def __init__(self, D, eta, cell=None):
         self.D = D
         self.eta = eta
+        self._mesh = mesh
 
     def eval(self, value, x):
         value[0] = 0.0
         if x[1] > self.D:
             value[0] = 1.0 / self.eta
-inv_eta = InvViscosity(params['elastic_depth'], params['viscosity'])
+inv_eta = InvViscosity(params['elastic_depth'], params['viscosity'], cell=triangle)
 
 # Define boundary conditions
 tol = 1e-10
@@ -69,19 +70,12 @@ class TestBC(Expression):
                                         self.shear_modulus,
                                         self.viscosity,
                                         self.plate_rate)
-        # value[0] = velocity_dimensional(x[0], x[1],
-        #                                 self.D,
-        #                                 self.t,
-        #                                 self.recur_interval,
-        #                                 self.shear_modulus,
-        #                                 self.viscosity,
-        #                                 self.plate_rate,
-        #                                 past_events=50)
 test_bc = TestBC(params['fault_depth'],
                  params['recur_interval'],
                  params['material']['shear_modulus'],
                  params['viscosity'],
                  params['plate_rate'])
+
 def fault_boundary(x, on_boundary):
     return on_boundary and x[0] < params['x_min'] + tol
 def plate_boundary(x, on_boundary):
@@ -122,8 +116,6 @@ class InitialStress(Expression):
         self.plate_rate = plate_rate
     def eval(self, value, x):
         Szx, Szy = simple_stress(x[0], x[1], self.s, self.D, self.mu)
-        # Szx, Szy = stress_dimensional(x[0], x[1], self.D, 0.0, self.recur, self.mu,
-        #                               self.viscosity, self.plate_rate)
         value[0] = Szx
         value[1] = Szy
     def value_shape(self):
@@ -140,7 +132,6 @@ initial_stress = InitialStress(params['fault_slip'],
 S0 = interpolate(initial_stress, S_fnc_space)
 # New stress
 S1 = Function(S_fnc_space)
-S2 = Function(S_fnc_space)
 Szx, Szy = S1.split()
 # New velocity
 v0 = Function(v_fnc_space)
@@ -151,33 +142,27 @@ v1 = Function(v_fnc_space)
 k = Constant(dt)
 f = Constant((0, 0))
 
-# a33 = v * vt * dx
-# L33 = div(S0) * vt * dx
-# A33 = assemble(a33)
-# b33 = assemble(L33)
-# solve(A33, v0.vector(), b33)
-# _DEBUG()
-
-# Tentative stress step
-A1 = inner(S - S0, St) * dx + \
-    k * mu * inv_eta * inner(S, St) * dx
-    # inner(Constant((0,0)), St) * dx
-a1 = lhs(A1)
-L1 = rhs(A1)
+#Tentative stress update:
+S_tent = (1 - k * mu * inv_eta) * S
+S_tent2 = (1 - k * mu * inv_eta) * S0
 
 # Velocity update
 a2 = inner(grad(v), grad(vt)) * dx
 # L2 = Constant(0) * vt * dx
-L2 = (1 / (mu * k)) * div(S1) * vt * dx
+l2 = (1 / (mu * k)) * div(S_tent) * vt * dx
 
 # Helmholtz decomposition stress update
 a3 = inner(S, St) * dx
-L3 = inner(S1, St) * dx + k * mu * inner(grad(v1), St) * dx
+l3_1 = inner(S_tent, St) * dx
+l3_2 = k * mu * inner(grad(v), St) * dx
+# l3 = inner(S_tent2, St) * dx + k * mu * inner(grad(v1), St) * dx
 
 # Assemble lhs matrices
-A1 = assemble(a1)
 A2 = assemble(a2)
+L2 = assemble(l2)
 A3 = assemble(a3)
+L3_1 = assemble(l3_1)
+L3_2 = assemble(l3_2)
 
 # Use amg preconditioner if available
 prec = "amg" if has_krylov_solver_preconditioner("amg") else "default"
@@ -189,32 +174,21 @@ vfile = File("../data/velocity.pvd")
 # Time-step
 t = dt
 
-def solve_tentative_stress():
-    begin("Computing tentative stress")
-    b1 = assemble(L1)
-    solve(A1, S1.vector(), b1, "cg", prec)
-    # S0.assign(S1)
-    # solve(A33, v0.vector(), b33)
-    # _DEBUG()
-    end()
-
 def solve_velocity():
     begin("Computing velocity correction")
-    b2 = assemble(L2)
+    b2 = L2 * S0.vector()
     [bc.apply(A2, b2) for bc in bcs]
     solve(A2, v1.vector(), b2, "cg", prec)
     end()
 
 def solve_stress_helmholtz():
     begin("Computing stress correction")
-    b3 = assemble(L3)
-    solve(A3, S2.vector(), b3, "cg", prec)
+    b3 = L3_1 * S0.vector() + L3_2 * v1.vector()
+    solve(A3, S1.vector(), b3, "cg", prec)
     end()
 
 while t < T + DOLFIN_EPS:
     test_bc.t = t
-    # Compute tentative stress step
-    solve_tentative_stress()
 
     # Velocity correction
     solve_velocity()
@@ -227,11 +201,11 @@ while t < T + DOLFIN_EPS:
     # plot(v1)
 
     # Save to file
-    sfile << S2
+    sfile << S1
     vfile << v1
 
     # Move to next time step
-    S0.assign(S2)
+    S0.assign(S1)
     v0.assign(v1)
     t += dt
     print "t =", t
