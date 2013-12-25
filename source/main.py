@@ -4,45 +4,9 @@ from dolfin import *
 from params import params
 import numpy as np
 from analytic_fast import simple_velocity, simple_stress
-
 import pdb
-
-
 def _DEBUG():
     pdb.set_trace()
-
-# Print log messages only from the root process in parallel
-parameters["std_out_all_processes"] = False
-# Use compiler optimizations
-parameters["form_compiler"]["cpp_optimize"] = True
-# Allow approximating values for points that may be generated outside
-# of domain (because of numerical inaccuracies)
-parameters["allow_extrapolation"] = True
-
-# Create mesh
-nx = params['x_points']
-ny = params['y_points']
-mesh = RectangleMesh(params['x_min'], params['y_min'],
-                     params['x_max'], params['y_max'],
-                     nx, ny)
-
-# Define function spaces
-S_fnc_space = VectorFunctionSpace(mesh, "CG", 2)
-v_fnc_space = FunctionSpace(mesh, "CG", 1)
-
-# Define trial and test functions
-S = TrialFunction(S_fnc_space)
-v = TrialFunction(v_fnc_space)
-St = TestFunction(S_fnc_space)
-vt = TestFunction(v_fnc_space)
-
-# Set parameter values
-dt = params['delta_t']
-T = params['t_max']
-
-# material parameters
-mu = Constant(params['material']['shear_modulus'])
-
 
 class InvViscosity(Expression):
 
@@ -55,12 +19,6 @@ class InvViscosity(Expression):
         value[0] = 0.0
         if x[1] > self.D:
             value[0] = 1.0 / self.eta
-inv_eta = InvViscosity(
-    params['elastic_depth'], params['viscosity'], cell=triangle)
-
-# Define boundary conditions
-tol = 1e-10
-
 
 class TestBC(Expression):
 
@@ -80,13 +38,8 @@ class TestBC(Expression):
                                    self.shear_modulus,
                                    self.viscosity,
                                    self.plate_rate)
-test_bc = TestBC(params['fault_depth'],
-                 params['recur_interval'],
-                 params['material']['shear_modulus'],
-                 params['viscosity'],
-                 params['plate_rate'])
 
-
+tol = 1e-10
 def fault_boundary(x, on_boundary):
     return on_boundary and x[0] < params['x_min'] + tol
 
@@ -105,32 +58,27 @@ def testing_boundary(x, on_bdry):
         # fault_boundary(x, on_bdry)
 
 
-def get_normal_bcs():
-    fault = DirichletBC(v_fnc_space,
+def get_normal_bcs(fnc_space):
+    fault = DirichletBC(fnc_space,
                         Constant(0.0),
                         fault_boundary)
-    plate = DirichletBC(v_fnc_space,
+    plate = DirichletBC(fnc_space,
                         Constant(params['plate_rate']),
                         plate_boundary)
-    mantle = DirichletBC(v_fnc_space,
+    mantle = DirichletBC(fnc_space,
                          Constant(0.0),
                          mantle_boundary)
     return [fault, plate, mantle]
 
 
-def get_test_bcs():
-    fault = DirichletBC(v_fnc_space,
+def get_test_bcs(fnc_space, bc):
+    fault = DirichletBC(fnc_space,
                         Constant(0.0),
                         fault_boundary)
-    testing = DirichletBC(v_fnc_space,
-                          test_bc,
+    testing = DirichletBC(fnc_space,
+                          bc,
                           testing_boundary)
     return [testing, fault]
-# bcs = get_normal_bcs()
-bcs = get_test_bcs()
-
-# Define Initial Conditions
-
 
 class InitialStress(Expression):
 
@@ -149,13 +97,54 @@ class InitialStress(Expression):
 
     def value_shape(self):
         return (2,)
+
+# Print log messages only from the root process in parallel
+parameters["std_out_all_processes"] = False
+# Use compiler optimizations
+parameters["form_compiler"]["cpp_optimize"] = True
+# Allow approximating values for points that may be generated outside
+# of domain (because of numerical inaccuracies)
+parameters["allow_extrapolation"] = True
+
+# Set parameter values
+dt = params['delta_t']
+T = params['t_max']
+mu = Constant(params['material']['shear_modulus'])
+inv_eta = InvViscosity(
+    params['elastic_depth'], params['viscosity'], cell=triangle)
+test_bc = TestBC(params['fault_depth'],
+                 params['recur_interval'],
+                 params['material']['shear_modulus'],
+                 params['viscosity'],
+                 params['plate_rate'])
 initial_stress = InitialStress(params['fault_slip'],
                                params['fault_depth'],
                                params['recur_interval'],
                                params['material']['shear_modulus'],
                                params['viscosity'],
                                params['plate_rate'])
+k = Constant(dt)
+f = Constant((0, 0))
 
+# Create mesh
+nx = params['x_points']
+ny = params['y_points']
+mesh = RectangleMesh(params['x_min'], params['y_min'],
+                     params['x_max'], params['y_max'],
+                     nx, ny)
+
+# Define function spaces
+S_fnc_space = VectorFunctionSpace(mesh, "CG", 2)
+v_fnc_space = FunctionSpace(mesh, "CG", 1)
+
+# Define trial and test functions
+S = TrialFunction(S_fnc_space)
+v = TrialFunction(v_fnc_space)
+St = TestFunction(S_fnc_space)
+vt = TestFunction(v_fnc_space)
+
+# bcs = get_normal_bcs(v_fnc_space)
+bcs = get_test_bcs(v_fnc_space, test_bc)
 
 # Old stress
 S0 = interpolate(initial_stress, S_fnc_space)
@@ -166,17 +155,13 @@ Szx, Szy = S1.split()
 v0 = Function(v_fnc_space)
 v1 = Function(v_fnc_space)
 
-# Define coefficients
-k = Constant(dt)
-f = Constant((0, 0))
-
 # Tentative stress update:
 S_tent = (1 - k * mu * inv_eta) * S
 
 # Velocity update
 a2 = inner(grad(v), grad(vt)) * dx
-# L2 = Constant(0) * vt * dx
 l2 = (1 / (mu * k)) * div(S_tent) * vt * dx
+goal = v1 * dx
 
 # Helmholtz decomposition stress update
 a3 = inner(S, St) * dx
@@ -208,7 +193,7 @@ while t < T + DOLFIN_EPS:
     begin("Computing velocity correction")
     b2 = L2 * S0.vector()
     [bc.apply(A2, b2) for bc in bcs]
-    solve(A2, v1.vector(), b2, "cg", prec)
+    solve(A2, v1.vector(), b2, "cg", prec)#, tol=1e-5, M=goal)
     end()
 
     # Velocity correction
