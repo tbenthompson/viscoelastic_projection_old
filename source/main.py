@@ -58,8 +58,8 @@ def mantle_boundary(x, on_boundary):
 
 def testing_boundary(x, on_bdry):
     return plate_boundary(x, on_bdry) or \
-        mantle_boundary(x, on_bdry)  # or \
-        # fault_boundary(x, on_bdry)
+        mantle_boundary(x, on_bdry)   or \
+        fault_boundary(x, on_bdry)
 
 
 def get_normal_bcs(fnc_space):
@@ -76,13 +76,10 @@ def get_normal_bcs(fnc_space):
 
 
 def get_test_bcs(fnc_space, bc):
-    fault = DirichletBC(fnc_space,
-                        Constant(0.0),
-                        fault_boundary)
     testing = DirichletBC(fnc_space,
                           bc,
                           testing_boundary)
-    return [testing, fault]
+    return [testing]
 
 
 class InitialStress(Expression):
@@ -108,9 +105,8 @@ def nparray_from_fenics(mesh, function):
     X_ = np.linspace(params['x_min'], params['x_max'], nx + 1)
     Y_ = np.linspace(params['y_min'], params['y_max'], ny + 1)
     X, Y = np.meshgrid(X_, Y_)
-    _DEBUG()
     linear_tris = FunctionSpace(mesh, "CG", 1)
-    v_interp = project(function, linear_tris)
+    v_interp = interpolate(function, linear_tris)
 
     v_numpy = v_interp.vector()[linear_tris.dofmap().dof_to_vertex_map(mesh)].\
         array().reshape((ny + 1, nx + 1))
@@ -125,7 +121,7 @@ parameters["form_compiler"]["cpp_optimize"] = True
 parameters["allow_extrapolation"] = True
 # Use amg preconditioner if available
 prec = "amg" if has_krylov_solver_preconditioner("amg") else "default"
-set_log_level(1)
+# set_log_level(1)
 
 # Set parameter values
 dt = params['delta_t']
@@ -161,25 +157,56 @@ ny = params['y_points']
 mesh = RectangleMesh(params['x_min'], params['y_min'],
                      params['x_max'], params['y_max'],
                      nx, ny)
-
-# Determine the required mesh.
-v_fnc_space = FunctionSpace(mesh, "CG", 1)
+# TOL = 1e-6
+# REFINE_RATIO=0.10
+new_mesh = mesh
+# for level in range(500):
+    # Determine the required mesh.
+v_fnc_space = FunctionSpace(new_mesh, "CG", 1)
 v = TrialFunction(v_fnc_space)
 vt = TestFunction(v_fnc_space)
 # bcs = get_normal_bcs(v_fnc_space)
 bcs = get_test_bcs(v_fnc_space, test_bc)
 v1 = Function(v_fnc_space)
 a2 = inner(grad(v), grad(vt)) * dx
+A2 = assemble(a2)
 l2 = (1 / (mu * k)) * div((-k * mu * inv_eta) * initial_stress) * vt * dx
-problem = LinearVariationalProblem(a2, l2, v1, bcs)
-solver = AdaptiveLinearVariationalSolver(problem, v1*dx)
-solver.solve(1e-3)
+solve(a2 == l2, v1, bcs, tol=1e-6, M=v1*dx)
 new_mesh = mesh.leaf_node()
+    # b2 = assemble(l2)
+    # [bc.apply(A2, b2) for bc in bcs]
+    # solve(A2, v1.vector(), b2)
+    # h = np.array([c.diameter() for c in cells(new_mesh)])
+    # K = np.array([c.volume() for c in cells(new_mesh)])
+    # R = np.array([np.mean([b2.array()[dof] for dof in v_fnc_space.dofmap().cell_dofs(c.index())])
+    #               for c in cells(new_mesh)])
+    # gamma = h*R*np.sqrt(K)
+
+    # # Compute error estimate
+    # E = sum([g*g for g in gamma])
+    # E = sqrt(MPI.sum(E))
+    # print "Level %d: E = %g (TOL = %g)" % (level, E, TOL)
+
+    # # Check convergence
+    # if E < TOL:
+    #     info("Success, solution converged after %d iterations", level)
+    #     break
+
+    # # Mark cells for refinement
+    # cell_markers = MeshFunction("bool", new_mesh, new_mesh.topology().dim())
+    # gamma_0 = sorted(gamma, reverse=True)[int(len(gamma)*REFINE_RATIO)]
+    # for c in cells(new_mesh):
+    #     cell_markers[c] = gamma[c.index()] > gamma_0
+
+    # # Refine mesh
+    # new_mesh = refine(new_mesh, cell_markers)
+
+    # Plot mesh
 plot(new_mesh)
-interactive()
+
 
 #Define function spaces
-S_fnc_space = VectorFunctionSpace(new_mesh, "CG", 2)
+S_fnc_space = VectorFunctionSpace(new_mesh, "DG", 0)
 v_fnc_space = FunctionSpace(new_mesh, "CG", 1)
 
 #Define test and trial functions
@@ -215,6 +242,7 @@ l3_2 = k * mu * inner(grad(v), St) * dx
 A2 = assemble(a2)
 L2 = assemble(l2)
 A3 = assemble(a3)
+_DEBUG()
 L3_1 = assemble(l3_1)
 L3_2 = assemble(l3_2)
 
