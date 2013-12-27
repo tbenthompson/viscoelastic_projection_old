@@ -9,7 +9,7 @@ params['material'] = wetdiabase
 # time stepping
 # params['delta_t'] = 0. * secs_in_a_year
 params['t_max'] = 100.0 * secs_in_a_year
-params['delta_t'] = params['t_max'] / 100.0001
+params['delta_t'] = params['t_max'] / 50.0001
 
 # grid descriptors
 params['x_min'] = 0.01

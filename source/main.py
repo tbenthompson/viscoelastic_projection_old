@@ -4,6 +4,8 @@ from dolfin import *
 from params import params
 import numpy as np
 from analytic_fast import simple_velocity, simple_stress
+from boundary_conditions import get_test_bcs, get_normal_bcs, TestBC
+from error_analysis import calc_error, view_error
 import pdb
 
 
@@ -23,63 +25,12 @@ class InvViscosity(Expression):
             value[0] = 1.0 / self.eta
 
 
-class TestBC(Expression):
-
-    def set_params(self, D, recur_interval,
-                 shear_modulus, viscosity, plate_rate):
-        self.D = D
-        self.recur_interval = recur_interval
-        self.shear_modulus = shear_modulus
-        self.viscosity = viscosity
-        self.plate_rate = plate_rate
-        self.t = 0
-
-    def eval(self, value, x):
-        value[0] = simple_velocity(x[0], x[1],
-                                   self.D,
-                                   self.t,
-                                   self.shear_modulus,
-                                   self.viscosity,
-                                   self.plate_rate)
 
 
 
-def fault_boundary(x, on_boundary):
-    return on_boundary and x[0] < params['x_min'] + 0.1
 
 
-def plate_boundary(x, on_boundary):
-    return on_boundary and x[0] > params['x_max'] - 0.1
 
-
-def mantle_boundary(x, on_boundary):
-    return on_boundary and x[1] > params['y_max'] - 0.1
-
-
-def testing_boundary(x, on_bdry):
-    return plate_boundary(x, on_bdry) or \
-        mantle_boundary(x, on_bdry)   or \
-        fault_boundary(x, on_bdry)
-
-
-def get_normal_bcs(fnc_space):
-    fault = DirichletBC(fnc_space,
-                        Constant(0.0),
-                        fault_boundary)
-    plate = DirichletBC(fnc_space,
-                        Constant(params['plate_rate']),
-                        plate_boundary)
-    mantle = DirichletBC(fnc_space,
-                         Constant(0.0),
-                         mantle_boundary)
-    return [fault, plate, mantle]
-
-
-def get_test_bcs(fnc_space, bc):
-    testing = DirichletBC(fnc_space,
-                          bc,
-                          testing_boundary)
-    return [testing]
 
 
 class InitialStress(Expression):
@@ -101,16 +52,6 @@ class InitialStress(Expression):
 
     def value_shape(self):
         return (2,)
-def nparray_from_fenics(mesh, function):
-    X_ = np.linspace(params['x_min'], params['x_max'], nx + 1)
-    Y_ = np.linspace(params['y_min'], params['y_max'], ny + 1)
-    X, Y = np.meshgrid(X_, Y_)
-    linear_tris = FunctionSpace(mesh, "CG", 1)
-    v_interp = interpolate(function, linear_tris)
-
-    v_numpy = v_interp.vector()[linear_tris.dofmap().dof_to_vertex_map(mesh)].\
-        array().reshape((ny + 1, nx + 1))
-    return v_numpy, X, Y
 
 # Print log messages only from the root process in parallel
 parameters["std_out_all_processes"] = False
@@ -171,37 +112,8 @@ v1 = Function(v_fnc_space)
 a2 = inner(grad(v), grad(vt)) * dx
 A2 = assemble(a2)
 l2 = (1 / (mu * k)) * div((-k * mu * inv_eta) * initial_stress) * vt * dx
-solve(a2 == l2, v1, bcs, tol=1e-6, M=v1*dx)
+solve(a2 == l2, v1, bcs, tol=1e-5, M=v1*dx)
 new_mesh = mesh.leaf_node()
-    # b2 = assemble(l2)
-    # [bc.apply(A2, b2) for bc in bcs]
-    # solve(A2, v1.vector(), b2)
-    # h = np.array([c.diameter() for c in cells(new_mesh)])
-    # K = np.array([c.volume() for c in cells(new_mesh)])
-    # R = np.array([np.mean([b2.array()[dof] for dof in v_fnc_space.dofmap().cell_dofs(c.index())])
-    #               for c in cells(new_mesh)])
-    # gamma = h*R*np.sqrt(K)
-
-    # # Compute error estimate
-    # E = sum([g*g for g in gamma])
-    # E = sqrt(MPI.sum(E))
-    # print "Level %d: E = %g (TOL = %g)" % (level, E, TOL)
-
-    # # Check convergence
-    # if E < TOL:
-    #     info("Success, solution converged after %d iterations", level)
-    #     break
-
-    # # Mark cells for refinement
-    # cell_markers = MeshFunction("bool", new_mesh, new_mesh.topology().dim())
-    # gamma_0 = sorted(gamma, reverse=True)[int(len(gamma)*REFINE_RATIO)]
-    # for c in cells(new_mesh):
-    #     cell_markers[c] = gamma[c.index()] > gamma_0
-
-    # # Refine mesh
-    # new_mesh = refine(new_mesh, cell_markers)
-
-    # Plot mesh
 plot(new_mesh)
 
 
@@ -231,7 +143,7 @@ Szx, Szy = S1.split()
 
 # Velocity update
 a2 = inner(grad(v), grad(vt)) * dx
-l2 = (1 / (mu * k)) * div((-k * mu * inv_eta) * S) * vt * dx
+l2 = (1 / (mu * k)) * div((1 - k * mu * inv_eta) * S) * vt * dx
 
 # Helmholtz decomposition stress update
 a3 = inner(S, St) * dx
@@ -242,35 +154,39 @@ l3_2 = k * mu * inner(grad(v), St) * dx
 A2 = assemble(a2)
 L2 = assemble(l2)
 A3 = assemble(a3)
-_DEBUG()
+A3a_inv = np.diag(1.0 / np.diagonal(A3.array()))
 L3_1 = assemble(l3_1)
 L3_2 = assemble(l3_2)
 
 # Time-step
 t = dt
 i = 1
-while t < T + DOLFIN_EPS:
-    test_bc.t = t
-
-    # Velocity correction
+def step1():
     begin("Computing velocity correction")
     b2 = L2 * S0.vector()
     [bc.apply(A2, b2) for bc in bcs]
     solve(A2, v1.vector(), b2, "cg", prec)
     end()
 
+def step2():
     # Velocity correction
     begin("Computing stress correction")
     b3 = L3_1 * S0.vector() + L3_2 * v1.vector()
-    solve(A3, S1.vector(), b3, "cg", prec)
+    update = A3a_inv.dot(b3.array())
+    S1.vector()[:] = update[:]
     end()
 
-    # Plot
-    plot(v1)
+while t < T + DOLFIN_EPS:
+    test_bc.t = t
+    step1()
+    step2()
 
-    # Save to file
-    sfile << S1
-    vfile << v1
+    # Plot
+    # plot(v1)
+
+    # # Save to file
+    # sfile << S1
+    # vfile << v1
 
     # Move to next time step
     S0.assign(S1)
@@ -280,26 +196,5 @@ while t < T + DOLFIN_EPS:
     print "t =", t
 print "Done Computing"
 
-def calc_error(which_mesh):
-    print "Converting to numpy array"
-    v_guess, X, Y = nparray_from_fenics(which_mesh, v1)
-    print "Done with conversion."
-    v_exact = np.empty_like(v_guess)
-    for i in range(v_guess.shape[0]):
-        for j in range(v_guess.shape[1]):
-            v_exact[i, j] = simple_velocity(
-                X[i, j], Y[i, j], params['fault_depth'], test_bc.t,
-                params['material']['shear_modulus'],
-                params['viscosity'], params['plate_rate'])
-    error = np.mean(np.abs(v_guess - v_exact)) / np.mean(v_exact)
-    print error
-    pyp.figure(1)
-    imgs = pyp.imshow(v_guess, vmin=0, vmax=np.max(v_exact))
-    pyp.colorbar()
-    pyp.figure(2)
-    imex = pyp.imshow(v_exact, vmin=0, vmax=np.max(v_exact))
-    pyp.colorbar()
-    imgs.set_cmap(imex.get_cmap())
-    pyp.show()
 # Iterate over solution and calculate error
-calc_error(mesh.root_node())
+calc_error(v1, test_bc.t)
