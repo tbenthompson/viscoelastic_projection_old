@@ -50,6 +50,13 @@ def get_normal_bcs(fnc_space, bc=None):
                          mantle_boundary)
     return [fault, plate, mantle]
 
+test_bc = TestBC()
+test_bc.set_params(params['fault_depth'],
+                 params['recur_interval'],
+                 params['material']['shear_modulus'],
+                 params['viscosity'],
+                 params['plate_rate'])
+test_bc.t = params['delta_t']
 def get_test_bcs(fnc_space, bc=None):
     testing = dfn.DirichletBC(fnc_space,
                           bc,
