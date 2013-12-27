@@ -68,8 +68,10 @@ class StressSolver(object):
             dfn.div((1 - self.dt * self.mu * self.inv_eta) * self.init_strs) * prob.vt * dfn.dx
 
         self.A = dfn.assemble(self.a)
-        # import pdb; pdb.set_trace()
-        self.A_inv = sparse.diags(1.0 / np.diagonal(self.A.array()), 0)
+        diag = dfn.as_backend_type(self.A).mat().getDiagonal()
+        diag.reciprocal()
+        dfn.as_backend_type(self.A).mat().setDiagonal(diag)
+        self.A_inv = self.A
         self.L_visc = dfn.assemble(self.l_visc)
         self.L_div_strs = dfn.assemble(self.l_div_strs)
 
@@ -82,9 +84,8 @@ class StressSolver(object):
     def time_step(self, rhs):
         print("Computing stress correction")
         b = self.L_visc * self.old_strs.vector() + rhs
-        # update = self.A_inv.dot(b.array())
-        dfn.solve(self.A, self.cur_strs.vector(), b)
-        # self.cur_strs.vector()[:] = update[:]
+        update = self.A_inv * b
+        self.cur_strs.vector()[:] = update[:]
         print("Done computing Stress Correction")
 
     def finish_time_step(self):

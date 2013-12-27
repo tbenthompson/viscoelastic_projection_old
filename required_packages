@@ -3,3 +3,4 @@ PETSC + petsc4py -- linear algebra solvers!
 numpy/scipy -- wide variety of useful numerical tasks.
 matplotlib (optional, but very useful!)
 cython -- C <---> python glue
+mpi4py

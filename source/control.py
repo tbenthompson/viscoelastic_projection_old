@@ -48,4 +48,4 @@ while t <= T:
 
 print "Done Computing"
 # Calculate the error in comparison with the analytic solution
-# calc_error(vel_solver.cur_vel, test_bc.t)
+calc_error(vel_solver.cur_vel, test_bc.t)
