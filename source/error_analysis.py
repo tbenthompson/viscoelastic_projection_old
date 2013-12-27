@@ -52,3 +52,4 @@ def view_error(v_guess, v_exact, error, error_map):
     pyp.imshow(error_map, interpolation='none')
     pyp.colorbar()
     pyp.show()
+
