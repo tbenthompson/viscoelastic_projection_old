@@ -1,3 +1,5 @@
-FEniCS
-numpy/scipy
-scitools
+FEniCS -- used for the finite element discretization
+PETSC + petsc4py -- linear algebra solvers!
+numpy/scipy -- wide variety of useful numerical tasks.
+matplotlib (optional, but very useful!)
+cython -- C <---> python glue
