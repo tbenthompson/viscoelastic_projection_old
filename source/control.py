@@ -7,6 +7,7 @@ from stress import StressSolver
 from velocity import VelocitySolver
 from problem import Problem
 import pdb
+import time
 
 
 def _DEBUG():
@@ -20,13 +21,14 @@ dfn.parameters["form_compiler"]["cpp_optimize"] = True
 # Allow approximating values for points that may be generated outside
 # of domain (because of numerical inaccuracies)
 dfn.parameters["allow_extrapolation"] = True
+start = time.clock()
 
 prob = Problem()
 strs_solver = StressSolver(prob)
 vel_solver = VelocitySolver(prob)
-# vel_solver.adapt_mesh(strs_solver.vel_rhs_adaptive())
-# strs_solver.setup_forms()
-# strs_solver.setup_forms()
+vel_solver.adapt_mesh(strs_solver.vel_rhs_adaptive())
+vel_solver.setup_forms()
+strs_solver.setup_forms()
 
 dt = params['delta_t']
 t = dt
@@ -47,5 +49,7 @@ while t <= T:
     print "t =", t
 
 print "Done Computing"
+end = time.clock()
+print "Run time: " + str(end - start) + " seconds"
 # Calculate the error in comparison with the analytic solution
-calc_error(vel_solver.cur_vel, test_bc.t)
+# calc_error(vel_solver.cur_vel, test_bc.t)

@@ -30,8 +30,8 @@ class VelocitySolver(object):
         mu, dt, inv_eta = self.mu, self.dt, self.inv_eta
         dfn.solve(self.a == rhs, self.cur_vel, self.bcs, tol=1e-2, M=self.cur_vel*dfn.dx)
         self.prob.update_mesh(self.prob.mesh.leaf_node())
-        dfn.plot(self.prob.mesh)
-        dfn.interactive()
+        # dfn.plot(self.prob.mesh)
+        # dfn.interactive()
 
     def strs_rhs(self):
         return self.L_elastic * self.cur_vel.vector()
