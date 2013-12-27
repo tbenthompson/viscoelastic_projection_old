@@ -1,5 +1,6 @@
 import numpy as np
 import dolfin as dfn
+import scipy.sparse as sparse
 from params import params
 from analytic_fast import simple_stress
 
@@ -39,7 +40,7 @@ class InvViscosity(dfn.Expression):
 class StressSolver(object):
     def __init__(self, prob):
         self.prob = prob
-        self.sfile = dfn.File("../data/stress.pvd")
+        self.file = dfn.File("../data/stress.pvd")
         self.inv_eta = InvViscosity(cell=dfn.triangle)
         self.inv_eta.set_params(params['elastic_depth'], params['viscosity'])
         self.dt = dfn.Constant(params['delta_t'])
@@ -60,29 +61,33 @@ class StressSolver(object):
 
         self.a = dfn.inner(prob.S, prob.St) * dfn.dx
         self.l_visc = dfn.inner((1 - self.dt * self.mu * self.inv_eta) * prob.S, prob.St) * dfn.dx
-        self.l_elast = l3_2 = self.dt * self.mu * dfn.inner(dfn.grad(prob.v), prob.St) * dfn.dx
 
         self.l_div_strs = (1 / (self.mu * self.dt)) * \
             dfn.div((1 - self.dt * self.mu * self.inv_eta) * prob.S) * prob.vt * dfn.dx
+        self.l_div_strs_initial = (1 / (self.mu * self.dt)) * \
+            dfn.div((1 - self.dt * self.mu * self.inv_eta) * self.init_strs) * prob.vt * dfn.dx
 
         self.A = dfn.assemble(self.a)
-        self.A_inv = np.diag(1.0 / np.diagonal(self.A.array()))
+        import pdb; pdb.set_trace()
+        self.A_inv = sparse.diags(1.0 / np.diagonal(self.A.array()), 0)
         self.L_visc = dfn.assemble(self.l_visc)
-        self.L_elast = dfn.assemble(self.l_elast)
         self.L_div_strs = dfn.assemble(self.l_div_strs)
 
-    def vel_rhs(self):
-        return self.L_div_strs * self.old_strs
+    def vel_rhs_adaptive(self):
+        return self.l_div_strs_initial
 
-    def time_step(self):
-        dfn.begin("Computing stress correction")
-        b3 = L3_1 * self.old_strs.vector()#FIGURE OUT! + L3_2 * 1self.vector()
-        update = A3a_inv.dot(b3.array())
-        S1.vector()[:] = update[:]
-        dfn.end()
+    def vel_rhs(self):
+        return self.L_div_strs * self.old_strs.vector()
+
+    def time_step(self, rhs):
+        print("Computing stress correction")
+        b3 = self.L_visc * self.old_strs.vector() + rhs
+        update = self.A_inv.dot(b3.array())
+        self.cur_strs.vector()[:] = update[:]
+        print("Done computing Stress Correction")
 
     def finish_time_step(self):
-        self.save()
+        # self.save()
         self.old_strs.assign(self.cur_strs)
 
     def save(self):

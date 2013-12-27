@@ -7,6 +7,8 @@ from stress import StressSolver
 from velocity import VelocitySolver
 from problem import Problem
 import pdb
+
+
 def _DEBUG():
     pdb.set_trace()
 
@@ -22,7 +24,9 @@ dfn.parameters["allow_extrapolation"] = True
 prob = Problem()
 strs_solver = StressSolver(prob)
 vel_solver = VelocitySolver(prob)
-vel_solver.adapt_mesh()
+# vel_solver.adapt_mesh(strs_solver.vel_rhs_adaptive())
+# strs_solver.setup_forms()
+# strs_solver.setup_forms()
 
 dt = params['delta_t']
 t = dt
@@ -33,8 +37,8 @@ while t <= T:
 
     vel_rhs = strs_solver.vel_rhs()
     vel_solver.time_step(vel_rhs)
-
-    strs_solver.time_step()
+    strs_rhs = vel_solver.strs_rhs()
+    strs_solver.time_step(strs_rhs)
 
     vel_solver.finish_time_step()
     strs_solver.finish_time_step()
@@ -44,4 +48,4 @@ while t <= T:
 
 print "Done Computing"
 # Calculate the error in comparison with the analytic solution
-calc_error(vel_solver.cur_vel, test_bc.t)
+# calc_error(vel_solver.cur_vel, test_bc.t)

@@ -18,30 +18,32 @@ class VelocitySolver(object):
         self.old_vel = dfn.Function(prob.v_fnc_space)
         self.cur_vel = dfn.Function(prob.v_fnc_space)
         self.a = dfn.inner(dfn.grad(prob.v), dfn.grad(prob.vt)) * dfn.dx
-        # self.l = (1 / (mu * k)) * div((1 - k * mu * inv_eta) * S) * vt * dx
         self.bcs = get_test_bcs(prob.v_fnc_space, test_bc)
         # Assemble matrices from variational forms. Ax = Ls
         self.A = dfn.assemble(self.a)
-        # self.L = dfn.assemble(self.l)
 
-    def adapt_mesh(self):
+        # For the gradient term in the stress update
+        self.l_elastic = self.dt * self.mu * dfn.inner(dfn.grad(prob.v), prob.St) * dfn.dx
+        self.L_elastic = dfn.assemble(self.l_elastic)
+
+    def adapt_mesh(self, rhs):
         mu, dt, inv_eta = self.mu, self.dt, self.inv_eta
-        rhs = (1 / (mu * dt)) * dfn.div((1 - dt * mu * inv_eta) * self.init_strs) * \
-            self.vt * dfn.dx
         dfn.solve(self.a == rhs, self.cur_vel, self.bcs, tol=1e-2, M=self.cur_vel*dfn.dx)
-        self.mesh = self.mesh.leaf_node()
-        dfn.plot(self.mesh)
+        self.prob.update_mesh(self.prob.mesh.leaf_node())
+        dfn.plot(self.prob.mesh)
         dfn.interactive()
-        self.setup_forms()
+
+    def strs_rhs(self):
+        return self.L_elastic * self.cur_vel.vector()
 
     def time_step(self, rhs):
         dfn.begin("Computing velocity correction")
         [bc.apply(self.A, rhs) for bc in self.bcs]
-        dfn.solve(self.A, self.cur_vel, rhs, "cg", "amg")
+        dfn.solve(self.A, self.cur_vel.vector(), rhs, "cg", "amg")
         dfn.end()
 
     def finish_time_step(self):
-        self.save()
+        # self.save()
         self.old_vel.assign(self.cur_vel)
 
     def save(self):

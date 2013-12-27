@@ -21,3 +21,6 @@ class Problem(object):
         self.S = dfn.TrialFunction(self.S_fnc_space)
         self.St = dfn.TestFunction(self.S_fnc_space)
 
+    def update_mesh(self, new_mesh):
+        self.mesh = new_mesh
+        self.setup_fnc_spaces()
