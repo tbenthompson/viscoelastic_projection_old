@@ -4,7 +4,9 @@ import scipy.sparse as sparse
 from params import params
 from analytic_fast import simple_stress
 
+
 class InitialStress(dfn.Expression):
+
     def set_params(self, s, D, recur, mu, viscosity, plate_rate):
         self.recur = recur
         self.mu = mu
@@ -24,10 +26,13 @@ class InitialStress(dfn.Expression):
     def value_shape(self):
         return (2,)
 
+
 class InvViscosity(dfn.Expression):
+
     """
     Inverse of viscosity (1/eta)
     """
+
     def set_params(self, D, eta):
         self.D = D
         self.eta = eta
@@ -37,14 +42,16 @@ class InvViscosity(dfn.Expression):
         if x[1] > self.D:
             value[0] = 1.0 / self.eta
 
+
 class StressSolver(object):
+
     def __init__(self, prob):
         self.prob = prob
         self.file = dfn.File("../data/stress.pvd")
         self.inv_eta = InvViscosity(cell=dfn.triangle)
         self.inv_eta.set_params(params['elastic_depth'], params['viscosity'])
         self.dt = dfn.Constant(params['delta_t'])
-        self.mu = params['material']['shear_modulus']
+        self.mu = dfn.Constant(params['material']['shear_modulus'])
         self.init_strs = InitialStress(cell=dfn.triangle)
         self.init_strs.set_params(params['fault_slip'],
                                   params['fault_depth'],
@@ -52,6 +59,7 @@ class StressSolver(object):
                                   params['material']['shear_modulus'],
                                   params['viscosity'],
                                   params['plate_rate'])
+        self.ode_method = self._tent_rk4
         self.setup_forms()
 
     def setup_forms(self):
@@ -60,7 +68,7 @@ class StressSolver(object):
         self.cur_strs = dfn.Function(prob.S_fnc_space)
 
         self.a = dfn.inner(prob.S, prob.St) * dfn.dx
-        self.l_visc = dfn.inner(self._tentative_update(prob.S), prob.St) * dfn.dx
+        self.l_visc = dfn.inner(self.ode_method(prob.S), prob.St) * dfn.dx
 
         self.l_div_strs = self._div_strs(prob.S)
         self.l_div_strs_initial = self._div_strs(self.init_strs)
@@ -73,15 +81,10 @@ class StressSolver(object):
         self.L_visc = dfn.assemble(self.l_visc)
         self.L_div_strs = dfn.assemble(self.l_div_strs)
 
-    def _tentative_update(self, S):
-        initial_strs = S
-        f1 = -self.dt * self.mu * self.inv_eta * S
-        return initial_strs + f1
-
     def _div_strs(self, S):
         prob = self.prob
         term = (1 / (self.mu * self.dt)) * \
-            dfn.div(self._tentative_update(S)) * prob.vt * dfn.dx
+            dfn.div(self.ode_method(S)) * prob.vt * dfn.dx
         return term
 
     def vel_rhs_adaptive(self):
@@ -103,3 +106,29 @@ class StressSolver(object):
 
     def save(self):
         self.file << self.cur_strs
+
+    def f(self, S):
+        return -self.mu * self.inv_eta * S
+
+    def _tent_euler(self, S):
+        f1 = self.f(S)
+        result = S + self.dt * f1
+        return result
+
+    def _tent_heun(self, S):
+        f1 = self.f(S)
+        f2 = self.f(S + self.dt * f1)
+        result = S + (0.5 * self.dt * (f1 + f2))
+        return result
+
+    def _tent_rk4(self, S):
+        initial_strs = S
+        f1 = self.f(S)
+        f2 = self.f(S + (0.5 * self.dt * f1))
+        f3 = self.f(S + (0.5 * self.dt * f2))
+        f4 = self.f(S + (1.0 * self.dt * f3))
+        result = S + ((1.0 / 6.0) * f1) + \
+                     ((1.0 / 3.0) * f2) + \
+                     ((1.0 / 3.0) * f3) + \
+                     ((1.0 / 6.0) * f4)
+        return result
