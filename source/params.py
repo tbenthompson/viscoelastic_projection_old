@@ -8,8 +8,8 @@ params['material'] = wetdiabase
 
 # time stepping
 # params['delta_t'] = 0. * secs_in_a_year
-params['t_max'] = 1.0 * secs_in_a_year
-params['delta_t'] = params['t_max'] / 1.0
+params['t_max'] = 100.0 * secs_in_a_year
+params['delta_t'] = params['t_max'] / 100.0
 
 # Meshing descriptors.
 params['x_min'] = 1.0

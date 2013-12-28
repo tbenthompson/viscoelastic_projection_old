@@ -122,13 +122,13 @@ class StressSolver(object):
         return result
 
     def _tent_rk4(self, S):
-        initial_strs = S
         f1 = self.f(S)
         f2 = self.f(S + (0.5 * self.dt * f1))
         f3 = self.f(S + (0.5 * self.dt * f2))
         f4 = self.f(S + (1.0 * self.dt * f3))
-        result = S + ((1.0 / 6.0) * f1) + \
-                     ((1.0 / 3.0) * f2) + \
-                     ((1.0 / 3.0) * f3) + \
-                     ((1.0 / 6.0) * f4)
+        result = S + \
+            ((1.0 / 6.0) * self.dt * f1) + \
+            ((1.0 / 3.0) * self.dt * f2) + \
+            ((1.0 / 3.0) * self.dt * f3) + \
+            ((1.0 / 6.0) * self.dt * f4)
         return result
