@@ -60,12 +60,10 @@ class StressSolver(object):
         self.cur_strs = dfn.Function(prob.S_fnc_space)
 
         self.a = dfn.inner(prob.S, prob.St) * dfn.dx
-        self.l_visc = dfn.inner((1 - self.dt * self.mu * self.inv_eta) * prob.S, prob.St) * dfn.dx
+        self.l_visc = dfn.inner(self._tentative_update(prob.S), prob.St) * dfn.dx
 
-        self.l_div_strs = (1 / (self.mu * self.dt)) * \
-            dfn.div((1 - self.dt * self.mu * self.inv_eta) * prob.S) * prob.vt * dfn.dx
-        self.l_div_strs_initial = (1 / (self.mu * self.dt)) * \
-            dfn.div((1 - self.dt * self.mu * self.inv_eta) * self.init_strs) * prob.vt * dfn.dx
+        self.l_div_strs = self._div_strs(prob.S)
+        self.l_div_strs_initial = self._div_strs(self.init_strs)
 
         self.A = dfn.assemble(self.a)
         diag = dfn.as_backend_type(self.A).mat().getDiagonal()
@@ -74,6 +72,17 @@ class StressSolver(object):
         self.A_inv = self.A
         self.L_visc = dfn.assemble(self.l_visc)
         self.L_div_strs = dfn.assemble(self.l_div_strs)
+
+    def _tentative_update(self, S):
+        initial_strs = S
+        f1 = -self.dt * self.mu * self.inv_eta * S
+        return initial_strs + f1
+
+    def _div_strs(self, S):
+        prob = self.prob
+        term = (1 / (self.mu * self.dt)) * \
+            dfn.div(self._tentative_update(S)) * prob.vt * dfn.dx
+        return term
 
     def vel_rhs_adaptive(self):
         return self.l_div_strs_initial

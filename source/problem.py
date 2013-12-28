@@ -1,10 +1,8 @@
 import dolfin as dfn
 from params import params
 class Problem(object):
-    def __init__(self):
-        self.mesh = dfn.RectangleMesh(params['x_min'], params['y_min'],
-                                  params['x_max'], params['y_max'],
-                                  params['x_points'], params['y_points'])
+    def __init__(self, mesh):
+        self.mesh = mesh
         self.setup_fnc_spaces()
 
     def setup_fnc_spaces(self):

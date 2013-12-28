@@ -28,7 +28,8 @@ class VelocitySolver(object):
 
     def adapt_mesh(self, rhs):
         mu, dt, inv_eta = self.mu, self.dt, self.inv_eta
-        dfn.solve(self.a == rhs, self.cur_vel, self.bcs, tol=1e-2, M=self.cur_vel*dfn.dx)
+        dfn.solve(self.a == rhs, self.cur_vel, self.bcs,
+                  tol=params['adapt_tol'], M=self.cur_vel*dfn.dx)
         self.prob.update_mesh(self.prob.mesh.leaf_node())
         # dfn.plot(self.prob.mesh)
         # dfn.interactive()

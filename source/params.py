@@ -9,15 +9,18 @@ params['material'] = wetdiabase
 # time stepping
 # params['delta_t'] = 0. * secs_in_a_year
 params['t_max'] = 100.0 * secs_in_a_year
-params['delta_t'] = params['t_max'] / 50.0
+params['delta_t'] = params['t_max'] / 1.0
 
-# grid descriptors
+# Meshing descriptors.
 params['x_min'] = 1.0
 params['x_max'] = 10.0e4
 params['y_min'] = 0.0
 params['y_max'] = 5.0e4
 params['x_points'] = 10
 params['y_points'] = 10
+params['adapt_tol'] = 1e-5
+params['mesh_file'] = 'mesh.h5'
+params['load'] = True
 
 # Far field plate rate boundary condition.
 params['plate_rate'] = 0#(40.0 / 1.0e3) / secs_in_a_year  # 40 mm/yr
