@@ -26,21 +26,21 @@
 
 
 
-    "status": "closed", 
+    "status": "open", 
 
 
 
 
 
 
-    "summary": "Allow saving of adapted mesh.", 
+    "summary": "Use improved solvers for the adaptive meshing.", 
 
 
 
 
 
 
-    "time": "Fri, 27 Dec 2013 08:11:08 +0000"
+    "time": "Sat, 28 Dec 2013 06:03:27 +0000"
 
 
 

@@ -1,5 +1,5 @@
 import dolfin as dfn
-from boundary_conditions import get_test_bcs, test_bc
+from boundary_conditions import get_normal_bcs, get_test_bcs, test_bc
 from params import params
 from stress import InitialStress, InvViscosity
 class VelocitySolver(object):
@@ -18,6 +18,8 @@ class VelocitySolver(object):
         self.old_vel = dfn.Function(prob.v_fnc_space)
         self.cur_vel = dfn.Function(prob.v_fnc_space)
         self.a = dfn.inner(dfn.grad(prob.v), dfn.grad(prob.vt)) * dfn.dx
+
+        # self.bcs = get_normal_bcs(prob.v_fnc_space, test_bc)
         self.bcs = get_test_bcs(prob.v_fnc_space, test_bc)
         # Assemble matrices from variational forms. Ax = Ls
         self.A = dfn.assemble(self.a)
@@ -28,8 +30,15 @@ class VelocitySolver(object):
 
     def adapt_mesh(self, rhs):
         mu, dt, inv_eta = self.mu, self.dt, self.inv_eta
-        dfn.solve(self.a == rhs, self.cur_vel, self.bcs,
-                  tol=params['adapt_tol'], M=self.cur_vel*dfn.dx)
+        goal = self.cur_vel*dfn.dx
+        var_prob = dfn.LinearVariationalProblem(self.a, rhs, self.cur_vel, self.bcs)
+        var_solve = dfn.AdaptiveLinearVariationalSolver(var_prob, goal)
+        p = var_solve.parameters
+        p['linear_variational_solver']['linear_solver'] = 'cg'
+        p['linear_variational_solver']['preconditioner'] = 'amg'
+        p['error_control']['dual_variational_solver']['linear_solver'] = 'cg'
+        p['error_control']['dual_variational_solver']['preconditioner'] = 'amg'
+        var_solve.solve(params['adapt_tol'])
         self.prob.update_mesh(self.prob.mesh.leaf_node())
         # dfn.plot(self.prob.mesh)
         # dfn.interactive()

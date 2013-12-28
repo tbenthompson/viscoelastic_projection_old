@@ -40,13 +40,13 @@ def testing_boundary(x, on_bdry):
 
 def get_normal_bcs(fnc_space, bc=None):
     fault = dfn.DirichletBC(fnc_space,
-                        Constant(0.0),
+                        dfn.Constant(0.0),
                         fault_boundary)
     plate = dfn.DirichletBC(fnc_space,
-                        Constant(params['plate_rate']),
+                        dfn.Constant(params['plate_rate']),
                         plate_boundary)
     mantle = dfn.DirichletBC(fnc_space,
-                         Constant(0.0),
+                         dfn.Constant(0.0),
                          mantle_boundary)
     return [fault, plate, mantle]
 
