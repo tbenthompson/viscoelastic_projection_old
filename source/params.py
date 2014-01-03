@@ -1,39 +1,56 @@
+import copy
 from material import wetdiabase
 
 secs_in_a_year = 3600 * 24 * 365.0
-params = dict()
+defaults = dict()
 
 # what material to use
-params['material'] = wetdiabase
+defaults['material'] = wetdiabase
 
 # time stepping
-# params['delta_t'] = 0. * secs_in_a_year
-params['t_max'] = 100.0 * secs_in_a_year
-params['delta_t'] = params['t_max'] / 32.0
+# defaults['delta_t'] = 0. * secs_in_a_year
+defaults['t_max'] = 1000.0 * secs_in_a_year
+defaults['delta_t'] = defaults['t_max'] / 1.0
 
 # Meshing descriptors.
-params['x_min'] = 100.0
-params['x_max'] = 10.0e4
-params['y_min'] = 0.0
-params['y_max'] = 5.0e4
-params['x_points'] = 10
-params['y_points'] = 10
-params['adapt_tol'] = 1e-5
-params['mesh_file'] = 'mesh.h5'
-params['load'] = False
+defaults['x_min'] = 100.0
+defaults['x_max'] = 10.0e4
+defaults['y_min'] = 0.0
+defaults['y_max'] = 5.0e4
+defaults['x_points'] = 10
+defaults['y_points'] = 10
+#saved_mesh.h5 has x_min=1.0
+#saved_mesh2.h5 has x_min=100.0
+# Adaptive meshing parameters
+defaults['load_mesh'] = False
+defaults['just_build_adaptive'] = False
+defaults['adapt_tol'] = 1e-4
+defaults['save_mesh'] = False
+# defaults['mesh_file'] = 'mesh.h5'
 
 # Far field plate rate boundary condition.
-params['plate_rate'] = 0#(40.0 / 1.0e3) / secs_in_a_year  # 40 mm/yr
+defaults['plate_rate'] = 0#(40.0 / 1.0e3) / secs_in_a_year  # 40 mm/yr
 
 # Initial stress setup -- fed into an elastic half-space solution
 # to determine initial conditions. In the future, I could numerically
 # solve a Poisson problem to determine a solution that would allow
 # slip variations and elastic modulus variations.
-params['fault_slip'] = 1.0
-params['fault_depth'] = 1.0e4
-params['recur_interval'] = 100 * secs_in_a_year
-params['elastic_depth'] = 1.0e4
-params['viscosity'] = 5.0e19
+defaults['fault_slip'] = 1.0
+defaults['fault_depth'] = 1.0e4
+defaults['recur_interval'] = 100 * secs_in_a_year
+defaults['elastic_depth'] = 1.0e4
+defaults['viscosity'] = 5.0e19
 
 # Where to save data?
-params['run_name'] = 'test'
+defaults['data_dir'] = 'test'
+
+defaults['plot'] = True
+
+# Calculate and save error
+defaults['calc_error'] = True
+
+def default_params():
+    # We deepcopy in case there are important sub-objects
+    return copy.deepcopy(defaults)
+
+params = default_params()

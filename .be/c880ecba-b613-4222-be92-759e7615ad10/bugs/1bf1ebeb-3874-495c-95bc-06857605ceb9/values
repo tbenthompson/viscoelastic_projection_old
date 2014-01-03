@@ -26,21 +26,21 @@
 
 
 
-    "status": "closed", 
+    "status": "open", 
 
 
 
 
 
 
-    "summary": "Align the mesh with the viscosity discontinuity.", 
+    "summary": "Think about moving to dealii", 
 
 
 
 
 
 
-    "time": "Sat, 28 Dec 2013 06:03:40 +0000"
+    "time": "Fri, 03 Jan 2014 17:52:24 +0000"
 
 
 

@@ -10,7 +10,6 @@ from stress import StressSolver
 from velocity import VelocitySolver
 from problem import Problem
 
-
 def _DEBUG():
     pdb.set_trace()
 
@@ -22,45 +21,62 @@ dfn.parameters["form_compiler"]["cpp_optimize"] = True
 # Allow approximating values for points that may be generated outside
 # of domain (because of numerical inaccuracies)
 dfn.parameters["allow_extrapolation"] = True
-start = time.clock()
 
-if params['load']:
-    f = dfn.HDF5File(params['mesh_file'], 'r')
-    m = dfn.Mesh()
-    f.read(m, 'mesh')
-else:
-    m = dfn.RectangleMesh(params['x_min'], params['y_min'],
-                              params['x_max'], params['y_max'],
-                              params['x_points'], params['y_points'])
-prob = Problem(m)
-strs_solver = StressSolver(prob)
-vel_solver = VelocitySolver(prob)
-if params['load'] is False:
-    vel_solver.adapt_mesh(strs_solver.vel_rhs_adaptive())
-    f = dfn.HDF5File(params['mesh_file'], 'w')
-    f.write(prob.mesh, 'mesh')
-    sys.exit()
+def run():
+    outer_start = time.clock()
 
-dt = params['delta_t']
-t = dt
-step = 0
-T = params['t_max']
-while t <= T:
-    test_bc.t = t
+    if params['load_mesh']:
+        f = dfn.HDF5File(params['mesh_file'], 'r')
+        m = dfn.Mesh()
+        f.read(m, 'mesh')
+    else:
+        m = dfn.RectangleMesh(params['x_min'], params['y_min'],
+                                  params['x_max'], params['y_max'],
+                                  params['x_points'], params['y_points'])
+    prob = Problem(m)
+    if not params['load_mesh']:
+        print "Building Adaptive Mesh"
+        strs_solver = StressSolver(prob)
+        vel_solver = VelocitySolver(prob)
+        vel_solver.adapt_mesh(strs_solver.vel_rhs_adaptive())
+        if params['save_mesh']:
+            f = dfn.HDF5File(params['mesh_file'], 'w')
+            f.write(prob.mesh, 'mesh')
+        print "Done building adaptive mesh"
+        if params['just_build_adaptive']:
+            sys.exit()
 
-    vel_rhs = strs_solver.vel_rhs()
-    vel_solver.time_step(vel_rhs)
-    strs_rhs = vel_solver.strs_rhs()
-    strs_solver.time_step(strs_rhs)
+    strs_solver = StressSolver(prob)
+    vel_solver = VelocitySolver(prob)
 
-    vel_solver.finish_time_step()
-    strs_solver.finish_time_step()
-    t += dt
-    step += 1
-    print "t =", t
 
-print "Done Computing"
-end = time.clock()
-print "Run time: " + str(end - start) + " seconds"
-# Calculate the error in comparison with the analytic solution
-calc_error(vel_solver.cur_vel, test_bc.t)
+    dt = params['delta_t']
+    t = dt
+    step = 0
+    T = params['t_max']
+    while t <= T:
+        inner_start = time.clock()
+        test_bc.t = t
+
+        vel_rhs = strs_solver.vel_rhs()
+        vel_solver.time_step(vel_rhs)
+        strs_rhs = vel_solver.strs_rhs()
+        strs_solver.time_step(strs_rhs)
+
+        vel_solver.finish_time_step()
+        strs_solver.finish_time_step()
+        t += dt
+        step += 1
+        print "t =", t
+        inner_end = time.clock()
+        print "Time step took: " + str(inner_end - inner_start)
+
+    print "Done Computing"
+    outer_end = time.clock()
+    print "Run time: " + str(outer_end - outer_start) + " seconds"
+    # Calculate the error in comparison with the analytic solution
+    if params['calc_error']:
+        print "Calculating Error"
+        v_guess, v_exact, error, error_map = calc_error(vel_solver.cur_vel, test_bc.t)
+        print "Done calculating Error"
+        return error

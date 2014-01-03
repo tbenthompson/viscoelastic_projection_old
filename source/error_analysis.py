@@ -36,7 +36,8 @@ def calc_error(vel, t, view=False):
                 params['viscosity'], params['plate_rate'])
     error_map = np.abs(v_guess - v_exact)
     error = np.mean(np.abs(v_guess - v_exact)) / np.mean(v_exact)
-    view_error(v_guess, v_exact, error, error_map)
+    if params['plot']:
+        view_error(v_guess, v_exact, error, error_map)
     return v_guess, v_exact, error, error_map
 
 def view_error(v_guess, v_exact, error, error_map):
