@@ -38,7 +38,7 @@ def run():
         print "Building Adaptive Mesh"
         strs_solver = StressSolver(prob)
         vel_solver = VelocitySolver(prob)
-        vel_solver.adapt_mesh(strs_solver.vel_rhs_adaptive())
+        vel_solver.adapt_mesh(strs_solver.vel_rhs_init_adaptive())
         if params['save_mesh']:
             f = dfn.HDF5File(params['mesh_file'], 'w')
             f.write(prob.mesh, 'mesh')
@@ -79,4 +79,5 @@ def run():
         print "Calculating Error"
         v_guess, v_exact, error, error_map = calc_error(vel_solver.cur_vel, test_bc.t)
         print "Done calculating Error"
+        print "Total error: " + str(error)
         return error

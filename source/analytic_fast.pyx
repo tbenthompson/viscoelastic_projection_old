@@ -7,8 +7,11 @@ from math import factorial
 
 cdef double PI = 3.14159265358979
 
-def simple_stress(double x, double y, double s, 
-                  double D, double shear_modulus):
+def simple_stress(double x, double y):
+    from params import params
+    cdef double s = params['fault_slip']
+    cdef double D = params['fault_depth']
+    cdef double shear_modulus = params['material']['shear_modulus']
     cdef double factor, main_term, image_term, Szx, Szy
     factor = (s * shear_modulus) / (2 * np.pi)
     main_term = (y - D) / ((y - D) ** 2 + x ** 2)
@@ -19,14 +22,6 @@ def simple_stress(double x, double y, double s,
     image_term = x / (x ** 2 + (y + D) ** 2)
     Szy = factor * (main_term + image_term)
     return Szx, Szy
-
-#def factorial(int n):
-#    cdef int ret = 1
-#    cdef int i
-#    for i in range(2, n + 1):
-#        ret *= i
-#    return i
-
 
 def simple_velocity(double x, double y, double D, double t, double mu,
                     double eta, double v_plate, int images=20):

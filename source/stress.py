@@ -6,22 +6,10 @@ from analytic_fast import simple_stress
 
 
 class InitialStress(dfn.Expression):
-
-    def set_params(self, s, D, recur, mu, viscosity, plate_rate):
-        self.recur = recur
-        self.mu = mu
-        self.D = D
-        self.s = s
-        self.viscosity = viscosity
-        self.plate_rate = plate_rate
-
     def eval(self, value, x):
-        Szx, Szy = self._eval(x)
+        Szx, Szy = params['initial_stress'](x[0], x[1])
         value[0] = Szx
         value[1] = Szy
-
-    def _eval(self, x):
-        return simple_stress(x[0], x[1], self.s, self.D, self.mu)
 
     def value_shape(self):
         return (2,)
@@ -52,26 +40,20 @@ class StressSolver(object):
         self.inv_eta.set_params(params['elastic_depth'], params['viscosity'])
         self.dt = dfn.Constant(params['delta_t'])
         self.mu = dfn.Constant(params['material']['shear_modulus'])
-        self.init_strs = InitialStress(cell=dfn.triangle)
-        self.init_strs.set_params(params['fault_slip'],
-                                  params['fault_depth'],
-                                  params['recur_interval'],
-                                  params['material']['shear_modulus'],
-                                  params['viscosity'],
-                                  params['plate_rate'])
+        self.init_cond = InitialStress(cell=dfn.triangle)
         self.ode_method = self._tent_rk4
         self.setup_forms()
 
     def setup_forms(self):
         prob = self.prob
-        self.old_strs = dfn.interpolate(self.init_strs, prob.S_fnc_space)
+        self.old_strs = dfn.interpolate(self.init_cond, prob.S_fnc_space)
         self.cur_strs = dfn.Function(prob.S_fnc_space)
 
         self.a = dfn.inner(prob.S, prob.St) * dfn.dx
         self.l_visc = dfn.inner(self.ode_method(prob.S), prob.St) * dfn.dx
 
         self.l_div_strs = self._div_strs(prob.S)
-        self.l_div_strs_initial = self._div_strs(self.init_strs)
+        self.l_div_strs_initial = self._div_strs(self.init_cond)
 
         self.A = dfn.assemble(self.a)
         diag = dfn.as_backend_type(self.A).mat().getDiagonal()
@@ -87,11 +69,21 @@ class StressSolver(object):
             dfn.div(self.ode_method(S)) * prob.vt * dfn.dx
         return term
 
-    def vel_rhs_adaptive(self):
+    def vel_rhs_init_adaptive(self):
         return self.l_div_strs_initial
 
-    def vel_rhs(self):
+    def vel_rhs_adaptive(self):
+        return self._div_strs(self.old_strs)
+
+    def vel_rhs_simple(self):
         return self.L_div_strs * self.old_strs.vector()
+
+    def vel_rhs(self):
+        if params['all_steps_adaptive']:
+            return self.vel_rhs_adaptive()
+        else:
+            return self.vel_rhs_simple()
+
 
     def time_step(self, rhs):
         print("Computing stress correction")
