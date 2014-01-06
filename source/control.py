@@ -34,20 +34,19 @@ def run():
                                   params['x_max'], params['y_max'],
                                   params['x_points'], params['y_points'])
     prob = Problem(m)
+    strs_solver = StressSolver(prob)
+    vel_solver = VelocitySolver(prob)
     if not params['load_mesh']:
         print "Building Adaptive Mesh"
+        vel_solver.adaptive_step(strs_solver.vel_rhs_init_adaptive())
         strs_solver = StressSolver(prob)
         vel_solver = VelocitySolver(prob)
-        vel_solver.adapt_mesh(strs_solver.vel_rhs_init_adaptive())
         if params['save_mesh']:
             f = dfn.HDF5File(params['mesh_file'], 'w')
             f.write(prob.mesh, 'mesh')
         print "Done building adaptive mesh"
         if params['just_build_adaptive']:
             sys.exit()
-
-    strs_solver = StressSolver(prob)
-    vel_solver = VelocitySolver(prob)
 
 
     dt = params['delta_t']
@@ -58,10 +57,16 @@ def run():
         inner_start = time.clock()
         test_bc.t = t
 
+        # strs_solver.tentative_step()
+
         vel_rhs = strs_solver.vel_rhs()
         vel_solver.time_step(vel_rhs)
+        if params['all_steps_adaptive']:
+            strs_solver = StressSolver(prob, strs_solver)
+            vel_solver = VelocitySolver(prob, vel_solver)
+
         strs_rhs = vel_solver.strs_rhs()
-        strs_solver.time_step(strs_rhs)
+        strs_solver.helmholtz_step(strs_rhs)
 
         vel_solver.finish_time_step()
         strs_solver.finish_time_step()

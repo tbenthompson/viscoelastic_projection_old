@@ -33,27 +33,35 @@ class InvViscosity(dfn.Expression):
 
 class StressSolver(object):
 
-    def __init__(self, prob):
+    def __init__(self, prob, old_solver=None):
         self.prob = prob
         self.file = dfn.File("../data/stress.pvd")
+        self.ode_method = self._tent_rk4
         self.inv_eta = InvViscosity(cell=dfn.triangle)
         self.inv_eta.set_params(params['elastic_depth'], params['viscosity'])
         self.dt = dfn.Constant(params['delta_t'])
         self.mu = dfn.Constant(params['material']['shear_modulus'])
         self.init_cond = InitialStress(cell=dfn.triangle)
-        self.ode_method = self._tent_rk4
-        self.setup_forms()
+        self.setup_forms(old_solver)
 
-    def setup_forms(self):
+    def setup_forms(self, old_solver):
         prob = self.prob
-        self.old_strs = dfn.interpolate(self.init_cond, prob.S_fnc_space)
-        self.cur_strs = dfn.Function(prob.S_fnc_space)
+        if old_solver is not None:
+            self.cur_strs = dfn.interpolate(old_solver.cur_strs,
+                                                      prob.S_fnc_space)
+            self.old_strs = dfn.interpolate(old_solver.old_strs,
+                                                      prob.S_fnc_space)
+        else:
+            self.old_strs = dfn.interpolate(self.init_cond,
+                                            self.prob.S_fnc_space)
+            self.cur_strs = dfn.Function(self.prob.S_fnc_space)
 
         self.a = dfn.inner(prob.S, prob.St) * dfn.dx
         self.l_visc = dfn.inner(self.ode_method(prob.S), prob.St) * dfn.dx
 
         self.l_div_strs = self._div_strs(prob.S)
         self.l_div_strs_initial = self._div_strs(self.init_cond)
+        self.l_div_strs_adaptive = self._div_strs(self.old_strs)
 
         self.A = dfn.assemble(self.a)
         diag = dfn.as_backend_type(self.A).mat().getDiagonal()
@@ -73,7 +81,7 @@ class StressSolver(object):
         return self.l_div_strs_initial
 
     def vel_rhs_adaptive(self):
-        return self._div_strs(self.old_strs)
+        return self.l_div_strs_adaptive
 
     def vel_rhs_simple(self):
         return self.L_div_strs * self.old_strs.vector()
@@ -84,8 +92,21 @@ class StressSolver(object):
         else:
             return self.vel_rhs_simple()
 
+    # def tentative_step(self):
+    #     print("Computing tentative stress")
+    #     b = self.L_visc * self.old_strs.vector()
+    #     update = self.A_inv * b
+    #     self.cur_strs.vector()[:] = update[:]
+    #     print("Done computing tentative_stress")
 
-    def time_step(self, rhs):
+    # def helmholtz_step(self, rhs):
+    #     print("Computing stress correction")
+    #     b = rhs
+    #     update = self.cur_strs.vector() + self.A_inv * b
+    #     self.cur_strs.vector()[:] = update[:]
+    #     print("Done computing Stress Correction")
+
+    def helmholtz_step(self, rhs):
         print("Computing stress correction")
         b = self.L_visc * self.old_strs.vector() + rhs
         update = self.A_inv * b
