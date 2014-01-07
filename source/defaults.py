@@ -1,6 +1,5 @@
 import copy
 from material import wetdiabase
-from analytic_fast import simple_stress
 
 secs_in_a_year = 3600 * 24 * 365.0
 defaults = dict()
@@ -43,7 +42,11 @@ defaults['fault_depth'] = 1.0e4
 defaults['recur_interval'] = 100 * secs_in_a_year
 defaults['elastic_depth'] = 1.0e4
 defaults['viscosity'] = 5.0e19
-defaults['initial_stress'] = simple_stress
+
+from analytic_fast import integral_stress, cosine_slip_fnc, integral_velocity
+slip_fnc = cosine_slip_fnc(defaults['fault_depth'])
+defaults['initial_stress'] = lambda x, y: integral_stress(x, y, slip_fnc)
+defaults['velocity'] = lambda x, y, t: integral_velocity(x, y, t, slip_fnc)
 
 # Where to save data?
 defaults['data_dir'] = 'test'

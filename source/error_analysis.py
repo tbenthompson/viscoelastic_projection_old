@@ -30,10 +30,7 @@ def calc_error(vel, t, view=False):
     v_exact = np.empty_like(v_guess)
     for i in range(v_guess.shape[0]):
         for j in range(v_guess.shape[1]):
-            v_exact[i, j] = simple_velocity(
-                X[i, j], Y[i, j], params['fault_depth'], t,
-                params['material']['shear_modulus'],
-                params['viscosity'], params['plate_rate'])
+            v_exact[i, j] = params['velocity'](X[i, j], Y[i, j], t)
     error_map = np.abs(v_guess - v_exact)
     error = np.mean(np.abs(v_guess - v_exact)) / np.mean(v_exact)
     if params['plot']:

@@ -63,7 +63,10 @@ def run():
         vel_solver.time_step(vel_rhs)
         if params['all_steps_adaptive']:
             strs_solver = StressSolver(prob, strs_solver)
-            vel_solver = VelocitySolver(prob, vel_solver)
+            vel_solver = VelocitySolver(prob, vel_solver, False)
+        Szx, Szy = strs_solver.old_strs.split()
+        # dfn.plot(Szx)
+        # dfn.interactive()
 
         strs_rhs = vel_solver.strs_rhs()
         strs_solver.helmholtz_step(strs_rhs)

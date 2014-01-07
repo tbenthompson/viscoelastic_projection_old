@@ -6,7 +6,7 @@ from stress import InitialStress, InvViscosity
 
 class VelocitySolver(object):
 
-    def __init__(self, prob, old_solver=None):
+    def __init__(self, prob, old_solver=None, first_step=True):
         self.prob = prob
         self.file = dfn.File("../data/velocity.pvd")
         self.mu = params['material']['shear_modulus']
@@ -14,6 +14,7 @@ class VelocitySolver(object):
         # Initial stress conditions
         self.inv_eta = InvViscosity(cell=dfn.triangle)
         self.inv_eta.set_params(params['elastic_depth'], params['viscosity'])
+        self.first_step = first_step
         self.setup_forms(old_solver)
 
     def setup_forms(self, old_solver):
@@ -57,6 +58,8 @@ class VelocitySolver(object):
         p['linear_variational_solver']['preconditioner'] = 'amg'
         p['error_control']['dual_variational_solver']['linear_solver'] = 'cg'
         p['error_control']['dual_variational_solver']['preconditioner'] = 'amg'
+        if not self.first_step:
+            p['marking_fraction'] = 0.15
         return var_solve
 
     def strs_rhs(self):
