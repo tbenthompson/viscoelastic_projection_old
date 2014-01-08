@@ -54,9 +54,14 @@ def simple_velocity(double x, double y, double t):
 
 def cosine_slip_fnc(double D):
     def slip_fnc(double z):
+        return pow(cos(z * np.pi / 20000.0), 2)
+    return slip_fnc
+
+def constant_slip_fnc(double D):
+    def slip_fnc(double z):
         if z > D:
             return 0.0
-        return pow(cos(z * np.pi / 20000.0), 2)
+        return 1.0
     return slip_fnc
 
 def integral_stress(double x, double y, s):
@@ -86,52 +91,67 @@ def integral_stress(double x, double y, s):
     Szy = factor * (main_term + image_term)
     return Szx, Szy
 
-def integral_velocity(double x, double y, double t, s):
+def integral_velocity(double x, double y, double t, s, 
+                      int images=20):
     from params import params
-    cdef int images = 20
     cdef double D = params['fault_depth']
-    cdef double mu = params['material']['shear_modulus'] 
+    cdef double mu = params['material']['shear_modulus']
     cdef double eta = params['viscosity']
     cdef double v = 0.0
     cdef double t_r = (2 * eta) / mu
     cdef int m = 0
-    cdef double factor
-    cdef double term, term1, term2, term3, term4
+    cdef double factor, term1, term2, term3, term4
+    #term1_sum = 0.0
+    #term2_sum = 0.0
+    #term3_sum = 0.0
+    #term4_sum = 0.0
     for m in range(1, images):
-        factor = (1.0 / (2.0 * PI)) * pow(t / t_r, m - 1) / factorial(m - 1)
+        factor = pow(t / t_r, m - 1) / factorial(m - 1)
+        def term_1_fnc_low(double z):
+            return s(z) * x / (pow(z + (2 * m) * D + y,2 ) + pow(x, 2))
+        def term_2_fnc_low(double z):
+            return s(z) * x / (pow(-z + (2 * m) * D + y, 2) + pow(x, 2))
+        def term_3_fnc_low(double z):
+            return s(z) * x / (pow(z + (2 * m - 2) * D + y, 2) + pow(x, 2))
+        def term_4_fnc_low(double z):
+            return s(z) * x / (pow(-z + (2 * m - 2) * D + y, 2) + pow(x, 2))
+        # Try integration by parts to understand the s(0) term.
+        term1 = scipy.integrate.quad(term_1_fnc_low, 0, D)[0] + \
+            s(0) * atan(((2 * m) * D + y) / x)
+        term2 = scipy.integrate.quad(term_2_fnc_low, 0, D)[0] - \
+            s(0) * atan(((2 * m) * D + y) / x)
+        term3 = scipy.integrate.quad(term_3_fnc_low, 0, D)[0] + \
+            s(0) * atan(((2 * m - 2) * D + y) / x)
+        term4 = scipy.integrate.quad(term_4_fnc_low, 0, D)[0] - \
+            s(0) * atan(((2 * m - 2) * D + y) / x)
+        #term1_sum += factor * term1
+        #term2_sum += factor * term2
+        #term3_sum += factor * term3
+        #term4_sum += factor * term4
         if y > D:
-            def term_1_fnc(double z):
-                return s(z) * (2 * m + 1) / \
-                    (x * (1 + (((2 * m + 1) * z + y) / x) ** 2))
-            def term_2_fnc(double z):
-                return -s(z) * (2 * m - 3) / \
-                    (x * (1 + (((2 * m - 3) * z + y) / x) ** 2))
-            term1 = scipy.integrate.quad(term_1_fnc, 0, D)[0]
-            term2 = scipy.integrate.quad(term_2_fnc, 0, D)[0]
-            term = term1 + term2
+            v += factor * (term1 + term2 + term3 + term4)
         else:
-            def term_1_fnc(double z):
-                return s(z) * (2 * m + 1) / \
-                    (x * (1 + (((2 * m + 1) * z + y) / x) ** 2))
-            def term_2_fnc(double z):
-                return -s(z) * (2 * m - 1) / \
-                    (x * (1 + (((2 * m - 1) * z + y) / x) ** 2))
-            def term_3_fnc(double z):
-                return s(z) * (2 * m + 1) / \
-                    (x * (1 + (((2 * m + 1) * z - y) / x) ** 2))
-            def term_4_fnc(double z):
-                return -s(z) * (2 * m - 1) / \
-                    (x * (1 + (((2 * m - 1) * z - y) / x) ** 2))
-            term1 = scipy.integrate.quad(term_1_fnc, 0, D)[0]
-            term2 = scipy.integrate.quad(term_2_fnc, 0, D)[0]
-            term3 = scipy.integrate.quad(term_3_fnc, 0, D)[0]
-            term4 = scipy.integrate.quad(term_4_fnc, 0, D)[0]
-            #term1 = atan(((2 * m + 1) * D + y) / x)
-            #term2 = -atan(((2 * m - 1) * D + y) / x)
-            #term3 = atan(((2 * m + 1) * D - y) / x)
-            #term4 = -atan(((2 * m - 1) * D - y) / x)
-
-            term = term1 + term2 + term3 + term4
-        v += factor * term
-    v *= exp(-t / t_r) * (1.0 / t_r)
-    return v
+            def term_1_fnc_up(double z):
+               return s(z) * x / (pow(z + (2 * m) * D + y, 2) + pow(x, 2))
+            def term_2_fnc_up(double z):
+                return s(z) * x / (pow(-z + (2 * m) * D + y, 2) + pow(x, 2))
+            def term_3_fnc_up(double z):
+                return s(z) * x / (pow(z + (2 * m) * D - y, 2) + pow(x, 2))
+            def term_4_fnc_up(double z):
+                return s(z) * x / (pow(-z + (2 * m) * D - y, 2) + pow(x, 2))
+            # Here, the s(0) terms cancel out.
+            term1 = scipy.integrate.quad(term_1_fnc_up, 0, D)[0] + \
+                s(0) * atan(((2 * m) * D + y) / x)
+            term2 = scipy.integrate.quad(term_2_fnc_up, 0, D)[0] - \
+                s(0) * atan(((2 * m) * D + y) / x)
+            term3 = scipy.integrate.quad(term_3_fnc_up, 0, D)[0] + \
+                s(0) * atan(((2 * m) * D - y) / x)
+            term4 = scipy.integrate.quad(term_4_fnc_up, 0, D)[0] - \
+                s(0) * atan(((2 * m) * D - y) / x)
+            v += factor * (term1 + term2 + term3 + term4)
+    v *= (1.0 / (2.0 * np.pi)) * np.exp(-t / t_r)  / t_r
+    #term1_sum *= (1.0 / (2.0 * np.pi)) * np.exp(-t / t_r)  / t_r
+    #term2_sum *= (1.0 / (2.0 * np.pi)) * np.exp(-t / t_r)  / t_r
+    #term3_sum *= (1.0 / (2.0 * np.pi)) * np.exp(-t / t_r)  / t_r
+    #term4_sum *= (1.0 / (2.0 * np.pi)) * np.exp(-t / t_r)  / t_r
+    return v#, term1_sum, term2_sum, term3_sum, term4_sum

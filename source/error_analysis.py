@@ -6,8 +6,10 @@ from analytic_fast import simple_velocity
 
 
 def get_finer_grid(function):
-    comp_width_x = 10 * params['x_points']
-    comp_width_y = 10 * params['y_points']
+    # comp_width_x = 10 * params['x_points']
+    # comp_width_y = 10 * params['y_points']
+    comp_width_x = params['x_points']
+    comp_width_y = params['y_points']
 
     mesh = dfn.RectangleMesh(params['x_min'], params['y_min'],
                      params['x_max'], params['y_max'],

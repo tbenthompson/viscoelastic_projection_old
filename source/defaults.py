@@ -48,6 +48,9 @@ slip_fnc = cosine_slip_fnc(defaults['fault_depth'])
 defaults['initial_stress'] = lambda x, y: integral_stress(x, y, slip_fnc)
 defaults['velocity'] = lambda x, y, t: integral_velocity(x, y, t, slip_fnc)
 
+#Boundary Conditions
+defaults['bcs'] = 'test'
+
 # Where to save data?
 defaults['data_dir'] = 'test'
 

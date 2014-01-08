@@ -33,8 +33,10 @@ class VelocitySolver(object):
         self.a = dfn.inner(dfn.grad(prob.v), dfn.grad(prob.vt)) * dfn.dx
         self.A = dfn.assemble(self.a)
 
-        # self.bcs = get_normal_bcs(prob.v_fnc_space, test_bc)
-        self.bcs = get_test_bcs(prob.v_fnc_space, test_bc)
+        if params['bcs'] is 'test':
+            self.bcs = get_test_bcs(prob.v_fnc_space, test_bc)
+        else:
+            self.bcs = get_normal_bcs(prob.v_fnc_space, test_bc)
 
         # For the gradient term in the stress update
         self.l_elastic = self.dt * self.mu * \
