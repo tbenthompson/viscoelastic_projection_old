@@ -36,17 +36,17 @@ def run():
     prob = Problem(m)
     strs_solver = StressSolver(prob)
     vel_solver = VelocitySolver(prob)
-    if not params['load_mesh']:
+    if not params['load_mesh'] and params['adaptive_mesh']:
         print "Building Adaptive Mesh"
         vel_solver.adaptive_step(strs_solver.vel_rhs_init_adaptive())
         strs_solver = StressSolver(prob)
         vel_solver = VelocitySolver(prob)
-        if params['save_mesh']:
-            f = dfn.HDF5File(params['mesh_file'], 'w')
-            f.write(prob.mesh, 'mesh')
         print "Done building adaptive mesh"
-        if params['just_build_adaptive']:
-            sys.exit()
+    if params['save_mesh']:
+        f = dfn.HDF5File(params['mesh_file'], 'w')
+        f.write(prob.mesh, 'mesh')
+    if params['just_build_adaptive']:
+        sys.exit()
 
 
     dt = params['delta_t']

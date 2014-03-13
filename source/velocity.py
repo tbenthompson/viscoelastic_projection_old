@@ -61,7 +61,7 @@ class VelocitySolver(object):
         p['error_control']['dual_variational_solver']['linear_solver'] = 'cg'
         p['error_control']['dual_variational_solver']['preconditioner'] = 'amg'
         if not self.first_step:
-            p['marking_fraction'] = 0.15
+            p['marking_fraction'] = 0.4
         return var_solve
 
     def strs_rhs(self):

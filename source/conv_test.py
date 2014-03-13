@@ -23,10 +23,10 @@ n_list = [16, 32]#, 64, 128, 256]
 dt_list = np.array([t_max / n for n in n_list])
 dt_conv_test(dt_list)
 # These were calculated using one time step which got shorter,
-# n_list = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 # t_max = 100 years / n
-# dt = 100 years / n
-# [ 0.20627478  0.09604368  0.05368977  0.02877043  0.01455314  0.00747645 0.00384754  0.00210327  0.00106475]
+n_list = np.array([1, 2, 4, 8, 16, 32, 64, 128, 256])
+dt = t_max / n_list
+error = np.array([0.20627478, 0.09604368, 0.05368977, 0.02877043, 0.01455314, 0.00747645, 0.00384754, 0.00210327, 0.00106475])
 # These calculated with full time!
 # n_list = [1, 2, 4, 8, 16, 32]
 # t_max = 100 years

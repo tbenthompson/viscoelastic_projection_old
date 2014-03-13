@@ -22,6 +22,7 @@ defaults['y_points'] = 10
 #saved_mesh.h5 has x_min=1.0
 #saved_mesh2.h5 has x_min=100.0
 # Adaptive meshing parameters
+defaults['adaptive_mesh'] = False
 defaults['load_mesh'] = False
 defaults['just_build_adaptive'] = False
 defaults['adapt_tol'] = 5e-5
